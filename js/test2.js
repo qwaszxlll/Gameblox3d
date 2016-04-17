@@ -600,6 +600,7 @@ function addElement(element){
 function makeBox(width, height, depth, hexColor){
 	var geometry = new THREE.BoxGeometry( width, height, depth );
 	handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
+		console.log("collision");
 		switch ( ++this.collisions ) {
 			
 			case 1:
