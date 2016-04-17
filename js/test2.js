@@ -68,6 +68,8 @@ init();
 |*********************************  Helper Functions  *********************************|
 \**************************************************************************************/
 
+Physijs.scripts.worker = '/physijs_worker.js';
+Physijs.scripts.ammo = 'Physijs/examples/js/ammo.js';
 
 function init(){
 	//Scene
