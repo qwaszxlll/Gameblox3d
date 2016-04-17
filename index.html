@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Gameblox 3D</title>
+		<link rel="stylesheet" type="text/css" href="test.css">
+		<script type="text/javascript">
+		   var imagePath = 'images/';
+		</script>
+	</head>
+	<body onresize="resize()">
+		<div class="navBar">
+			<div class="navElement">
+			  	<button class="button" id="dropBtn" onclick="showEditOptions()"> Cursor: Edit </button>
+			  	<div id="myDropdown" class="dropdown-content">
+			  		<div class="menuBtn" onclick="editObj()">Edit Objects</div>
+				    <div class="menuBtn" onclick="pan()">Pan Camera</div>
+				    <div class="menuBtn" onclick="rotate()">Rotate Camera</div>
+			  	</div>
+			</div>
+			<button class="navElement button" id="centerBtn" onclick="centerView()"> 
+				<img src="images/centerCam.png">
+			</button>
+			<button class="navElement button" id="centerBtn" onclick="toggleGrid()"> 
+				<img src="images/grid.png">
+			</button>
+			<button class="button" id="play_edit_btn" onclick="swapMode()"> PLAY </button>
+		</div>
+		<div id="sidebar">
+			<div id="sidebar_contents">
+				<div class="subTitle"> Add New Object </div>
+				<button class="button" onclick="addCube()"> 
+					<img src="images/cube.png"> 
+				</button>
+				<button class="button" onclick="addCone()"> 
+					<img src="images/cone.png"> 
+				</button>
+				<button class="button" onclick="addCylinder()"> 
+					<img src="images/cylinder.png"> 
+				</button>
+				<button class="button" onclick="addSphere()"> 
+					<img src="images/sphere.png"> 
+				</button>
+				<button class="button" onclick="newObject()"> 
+					<img src="images/add.png"> 
+				</button>
+				<div class="subTitle noselect"> Your Objects </div>
+				<ul id ="elementList"></ul>
+			</div>
+		</div>
+		<div id="editor">				
+			<!-- <div id="info">
+			"Q" translate | "W" rotate | "E" scale | hold down "R" to snap to grid <br />
+			"+" increase size | "-" decrease size | Press "Q" to toggle world/local space, 
+			</div> -->
+			<div id="scene"></div>
+			<div id="sceneOptions">
+				<div class="spacer"></div>
+				<div class="subTitle noselect"> Options </div>
+			</div>
+		</div>
+
+		
+		<script type="text/javascript" src="js/threejs/build/three.min.js"></script>
+		<script type="text/javascript" src="js/Physijs/physi.js"></script>
+		<script type="text/javascript" src="js/tween.js"></script>
+		<script type="text/javascript" src="js/mapControls.js"></script>
+		<script type="text/javascript" src="js/CanvasRenderer.js"></script>
+		<script type="text/javascript" src="js/Projector.js"></script>
+		<script type="text/javascript" src="js/ShadowMesh.js"></script>
+		<script type="text/javascript" src="js/test2.js"></script>
+	</body>
+</html>
