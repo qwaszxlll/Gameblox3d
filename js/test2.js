@@ -1,15 +1,18 @@
 'Use Strict'
+Physijs.scripts.worker = 'js/Physijs/physijs_worker.js';
+Physijs.scripts.ammo = 'ammo.js';
+
 // Scene and Camera Attributes
 var WIDTH = document.getElementById("scene").clientWidth,
   	HEIGHT = document.getElementById("scene").clientHeight,
-  	gridSize = 105, gridStep = 10,
+  	gridSize = 21, gridStep = 1, gridOffset = 0,
   	theta = 0, phi = 60,
   	onMouseDownTheta = theta, onMouseDownPhi = phi,
   	panStart = new THREE.Vector3(),
   	zoomSpeed = 1.0,
   	panSpeed = 0.4,
   	cameraCenter = new THREE.Vector3(0,0,0),
-  	maxRadius = 1.8 * gridSize,
+  	maxRadius = gridSize,
   	cameraRadius = maxRadius;
 
 //Control Variables
@@ -25,11 +28,15 @@ var control = undefined,
 	SELECTED = false,
 	mouseDown = false,
 	onMouseDownPosition = [0,0],
+	selectOpacity = 0.8,
 	normalVector = new THREE.Vector3( 0, 1, 0 );
 var pointerVector = new THREE.Vector2();
 
+//Physics Variables
+var collided = false;
+
 //Shadow variables
-var planeConstant = -0.01, // this value must be slightly higher than the groundMesh's y position of 0.0
+var planeConstant = -gridStep/2, // this value must be slightly higher than the groundMesh's y position of 0.0
 	groundPlane = new THREE.Plane( new THREE.Vector3( 0, 1, 0 ), planeConstant ),
 	lightPosition4D = new THREE.Vector4();
 
@@ -68,22 +75,14 @@ init();
 |*********************************  Helper Functions  *********************************|
 \**************************************************************************************/
 
-Physijs.scripts.worker = '/physijs_worker.js';
-Physijs.scripts.ammo = 'Physijs/examples/js/ammo.js';
-
 function init(){
 	//Scene
 	// scene = new THREE.Scene();
 	scene = new Physijs.Scene;
-	scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
-	scene.addEventListener(
-		'update',
-		function() {
-			scene.simulate( undefined, 1 );
-		}
-	);
+	scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
 	scene.shadows = [];
 	scene.objects = [];
+	scene.startPositions = {};
 	scene.castShadow = true;
 
 	//Renderer
@@ -108,18 +107,50 @@ function init(){
 
 
 	//Grid
-	grid = new THREE.GridHelper( gridSize, gridStep )
+	grid = new THREE.GridHelper( gridSize/2, gridStep );
+	grid.position.y = -gridStep/2;
 	grid.receiveShadow = true;
 	scene.add( grid );
-	var planeGeometry = new THREE.PlaneGeometry( gridSize*2, gridSize*2, 50, 50 );
-	var planeMaterial = new THREE.MeshLambertMaterial( { color: 0xE6E4E6, visible: true } );
-	ground = new THREE.Mesh( planeGeometry, planeMaterial );
-	ground.rotation.set( - Math.PI / 2, 0, 0 );
+	grid.name = "grid";
+	// var planeGeometry = new THREE.PlaneGeometry( gridSize, gridSize, 50, 50 );
+	// var planeMaterial = new THREE.MeshLambertMaterial( { color: 0xE6E4E6, visible: true } );
+
+	// Ground
+	ground_material = Physijs.createMaterial(
+		new THREE.MeshLambertMaterial({ color: 'white', visible: true}),
+		.8, // high friction
+		.3 // low restitution
+	);
+	ground = new Physijs.BoxMesh(
+		new THREE.CubeGeometry(gridSize, 0.01, gridSize),
+		ground_material,
+		0 // mass
+	);
+	ground.position.set(0, -gridStep/2, 0);
 	ground.renderOrder = -2;
 	ground.frustumCulled = false;
+	ground.name = "ground";
 	camera.add( ground );
 	ground.receiveShadow = true;
-	scene.add(ground);
+	scene.add( ground );
+
+	// var wall_material = Physijs.createMaterial(
+	// 	new THREE.MeshLambertMaterial({ color: 'white', visible: false}),
+	// 	.8, // high friction
+	// 	.3 // low restitution
+	// );
+	// var north_wall = new Physijs.BoxMesh(
+	// 	new THREE.CubeGeometry(gridSize, 0.01, gridSize),
+	// 	wall_material,
+	// 	0 // mass
+	// );
+	// north_wall.position.set(0, -gridStep/2, gridSize/2);
+	// north_wall.renderOrder = -2;
+	// north_wall.frustumCulled = false;
+	// camera.add( north_wall );
+	// north_wall.receiveShadow = true;
+	// scene.add( north_wall );
+
 
 	//Configure Lighting
 	var light = new THREE.DirectionalLight( 'rgb(255,255,255)', 1 );
@@ -161,51 +192,19 @@ function init(){
 
 	document.addEventListener( "mousedown", on_doc_down);
 	document.addEventListener( "mouseup", on_up );
-	document.getElementById("sidebar").addEventListener( "mousedown", clickList);
+	// document.getElementById("sidebar").addEventListener( "mousedown", clickList);
 	document.getElementById("scene").addEventListener( "mousedown", on_down );
 	document.getElementById("scene").addEventListener( "touchstart", on_down );
 	document.getElementById("scene").addEventListener( "mousewheel", on_MouseWheel );
 	document.getElementById("scene").onresize = resize;
 
-	animate();
-	scene.simulate();
+	requestAnimationFrame( render );
 }
 
 /**************************************************************************************\
-|**********************************  DOM OPERATIONS  **********************************|
+|*********************************  EDITING FUNCTIONS  ********************************|
 \**************************************************************************************/
 
-function on_doc_down(event){
-	//Toggle Cursor Menu Dropdown
-	if (!event.target.matches('#dropBtn') && !event.target.classList.contains('menuBtn')) {
-	    closeMenu();
-  	}
-
-  	//Confirm name change of sidebar element if clicking outside of textbox
-  	if (editingList && event.target.type != 'text'){
-  		var li = editingList.parentElement.parentElement;
-		li.attached.name = editingList.value;
-		li.innerHTML = editingList.value;
-		editingList = false;
-		return false;
-	}
-
-	//Reset all object opacities
-	for (var i=0; i<scene.objects.length; i++){
-		if (scene.objects[i] != SELECTED){
-			scene.objects[i].material.opacity = 1;
-		}
-	}
-	
-	//Select a cube if name in sidebar is clicked, otherwise unselect all
-	if (event.target != renderer.domElement){
-		unselect();
-		if (event.target.localName == "li"){
-			console.log("select!");
-			selectObj(event.srcElement.attached);
-		}
-	}
-}
 /*
 * Handler for making the element controller appear or disappear. 
 */
@@ -221,6 +220,7 @@ function on_down(event){
 
 			var intersections = intersectObjects( pointer, scene.objects );
 			var clicked = intersections[ 0 ] ? intersections[ 0 ] : false;
+			unselect();
 			if (clicked){
 				oldPosition.copy( clicked.object.position );
 				oldRotationMatrix.extractRotation( clicked.object.matrix );
@@ -230,8 +230,6 @@ function on_down(event){
 				draggedElement = clicked.object;
 
 				offset.copy( clicked.point );
-			} else{
-				unselect();
 			}
 
 		} else if (cursorMode == 'pan'){
@@ -259,6 +257,7 @@ function on_down(event){
 
 function on_move(event){
 	if (draggedElement && mouseDown){
+		scene.setGravity(new THREE.Vector3( 0, 0, 0 ));
 		var pointer = event.changedTouches ? event.changedTouches[ 0 ] : event;
 		var intersections = intersectObjects( pointer, [ground] );
 		var planeIntersect = intersections[ 0 ] ? intersections[ 0 ] : false;
@@ -271,15 +270,19 @@ function on_move(event){
 		point.z = Math.max(-gridSize + gridStep, Math.min(gridSize, point.z));
 		point.sub( offset );
 		point.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
-		point.y = 0;
 		point.applyMatrix4( oldRotationMatrix );
+		point.y = 0;
 
+		draggedElement.__dirtyPosition = true;
+		draggedElement.setLinearVelocity(new THREE.Vector3(0, 0, 0));
+   		draggedElement.setAngularVelocity(new THREE.Vector3(0, 0, 0));
 		draggedElement.position.copy( oldPosition );
 		draggedElement.position.add( point );
+
 		// draggedElement.position.applyMatrix4( tempMatrix.getInverse( worldRotationMatrix ) );
 
 		draggedElement.position.x = Math.round( draggedElement.position.x / gridStep ) * gridStep;
-		draggedElement.position.y = Math.round( draggedElement.position.y / gridStep ) * gridStep - gridStep/2;
+		// draggedElement.position.y = Math.round( draggedElement.position.y / gridStep ) * gridStep;
 		draggedElement.position.z = Math.round( draggedElement.position.z / gridStep ) * gridStep;
 
 
@@ -326,6 +329,7 @@ function on_move(event){
 }
 
 function on_up(event){
+	scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
 	if (draggedElement){
 		draggedElement = false;
 	}
@@ -363,33 +367,16 @@ function on_MouseWheel( event ) {
 		camera.position.addVectors( camera.position, zoomOffset );
 		checkCameraBounds();
 	}
-
 }
 
-function checkCameraBounds(){
-	// camera.position.x = Math.max(-gridSize, Math.min(gridSize, camera.position.x));
-	// camera.position.y = Math.max(0, Math.min(gridSize, camera.position.y));
-	// camera.position.z = Math.max(-gridSize, Math.min(1.5 * gridSize, camera.position.z));
-	// cameraRadius = camera.position.length();
-	if (camera.position.length() - cameraCenter.length() > maxRadius){
-		var overflow_frac = (camera.position.length() - cameraCenter.length())/maxRadius
-		camera.position.subVectors(camera.position, cameraCenter);
-		camera.position.divideScalar(overflow_frac);
-		camera.position.addVectors(camera.position, cameraCenter);
-	} else if (camera.position.length() < gridStep*2){
-		camera.position.divideScalar(camera.position.length()/gridStep/2)
-	}
-	cameraRadius = camera.position.length();
-}
-
-function clickList(event){
-	// if (event.target.localName == "li"){
-	// 	selecObj(event.srcElement.attached);
-	// }	
+function roundPosition(element){
+	draggedElement.position.x = Math.round( draggedElement.position.x );
+	draggedElement.position.y = Math.round( draggedElement.position.y );
+	draggedElement.position.z = Math.round( draggedElement.position.z );
 }
 
 function selectObj(element){
-	element.material.opacity = 0.5;
+	element.material.opacity = selectOpacity;
 	SELECTED = element;
 	SELECTED.listLink.style.background = '#69A0E1';
 	SELECTED.listLink.style.color = 'white';
@@ -403,6 +390,68 @@ function unselect(){
 	}
 	SELECTED = false;
 }
+
+function checkCameraBounds(){
+	if (camera.position.length() - cameraCenter.length() > maxRadius){
+		var overflow_frac = (camera.position.length() - cameraCenter.length())/maxRadius
+		camera.position.subVectors(camera.position, cameraCenter);
+		camera.position.divideScalar(overflow_frac);
+		camera.position.addVectors(camera.position, cameraCenter);
+	} else if (camera.position.length() < gridStep*2){
+		camera.position.divideScalar(camera.position.length()/gridStep/2)
+	}
+	cameraRadius = camera.position.length();
+}
+
+function intersectObjects( pointer, objects ) {
+
+	var rect = renderer.domElement.getBoundingClientRect();
+	var x = ( pointer.clientX - rect.left ) / rect.width;
+	var y = ( pointer.clientY - rect.top ) / rect.height;
+
+	pointerVector.set( ( x * 2 ) - 1, - ( y * 2 ) + 1 );
+	raycaster.setFromCamera( pointerVector, camera );
+
+	var intersections = raycaster.intersectObjects( objects, true );
+	return intersections;
+
+}
+
+/**************************************************************************************\
+|***********************************  UI OPERATIONS  **********************************|
+\**************************************************************************************/
+
+function on_doc_down(event){
+	//Toggle Cursor Menu Dropdown
+	if (!event.target.matches('#dropBtn') && !event.target.classList.contains('menuBtn')) {
+	    closeMenu();
+  	}
+
+  	//Confirm name change of sidebar element if clicking outside of textbox
+  	if (editingList && event.target.type != 'text'){
+  		var li = editingList.parentElement.parentElement;
+		li.attached.name = editingList.value;
+		li.innerHTML = editingList.value;
+		editingList = false;
+		return false;
+	}
+
+	//Reset all object opacities
+	for (var i=0; i<scene.objects.length; i++){
+		if (scene.objects[i] != SELECTED){
+			scene.objects[i].material.opacity = 1;
+		}
+	}
+	
+	//Select a cube if name in sidebar is clicked, otherwise unselect all
+	if (event.target != renderer.domElement){
+		unselect();
+		if (event.target.localName == "li"){
+			console.log("select!");
+			selectObj(event.srcElement.attached);
+		}
+	}
+};
 
 function updateList(){
 	var list = document.getElementById( "elementList")
@@ -421,99 +470,9 @@ function updateList(){
 		  	list.appendChild(li);
 		}
 	}
-}
+};
 
-/* When the user clicks on the button, 
-toggle between hiding and showing the dropdown content */
-function showEditOptions() {
-    document.getElementById("myDropdown").classList.toggle("show");
-}
-
-function editObj(){
-	document.getElementById("dropBtn").innerHTML = 'Cursor: Edit'
-	document.getElementById("scene").style.cursor = "pointer";
-	cursorMode = 'edit';
-	closeMenu();
-}
-
-function pan(){
-	document.getElementById("dropBtn").innerHTML = 'Cursor: Pan';
-	document.getElementById("scene").style.cursor = "-webkit-grab";
-	cursorMode = 'pan';
-	closeMenu();
-}
-
-function rotate(){
-	document.getElementById("dropBtn").innerHTML = 'Cursor: Rotate'
-	document.getElementById("scene").style.cursor = "url('/images/rotate.png'), auto";
-	cursorMode = 'rotate';
-	closeMenu();
-}
-
-function closeMenu(){
-	var dropdowns = document.getElementsByClassName("dropdown-content");
-    var i;
-    for (i = 0; i < dropdowns.length; i++) {
-	     var openDropdown = dropdowns[i];
-	     if (openDropdown.classList.contains('show')) {
-	        openDropdown.classList.remove('show');
-	     }
-    }
-}
-
-function toggleGrid(){
-	grid.visible = !grid.visible;
-}
-
-function centerView(){
-	cameraCenter = new THREE.Vector3(0,0,0);
-	cameraRadius = maxRadius;
-	theta = 0, phi = 60;
-
-	camera.position.x = cameraRadius * Math.sin( theta * Math.PI / 360 )
-                            * Math.cos( phi * Math.PI / 360 );
-    camera.position.y = cameraRadius * Math.sin( phi * Math.PI / 360 );
-    camera.position.z = cameraRadius * Math.cos( theta * Math.PI / 360 )
-                            * Math.cos( phi * Math.PI / 360 );
-	camera.lookAt(cameraCenter);
-}
-
-function swapMode(){
-	document.getElementById("play_edit_btn").innerHTML = mode;
-	var buttons = document.getElementsByClassName("navElement");
-
-	if (mode == "EDIT"){
-		mode = "PLAY";
-		centerView();
-		for (var i=0; i<buttons.length; i++){
-			buttons[i].style.display = "none";
-		}	
-		document.getElementById("sidebar").style.display = "none";
-		document.getElementById("sceneOptions").style.display = "none";
-		document.getElementById("scene").style.height = "100%";
-		document.getElementById("editor").style.width = "100%";
-		grid.visible = false;
-		resize();
-	} else{
-		mode = "EDIT";
-		for (var i=0; i<buttons.length; i++){
-			buttons[i].style.display = "inline-block";
-		}	
-		document.getElementById("sidebar").style.display = "block";
-		document.getElementById("sceneOptions").style.display = "block";
-		document.getElementById("scene").style.height = "70%";
-		document.getElementById("editor").style.width = "83%";
-		grid.visible = true;
-		resize();
-	}
-}
-
-function resize(event){
-	WIDTH = document.getElementById("scene").clientWidth;
-  	HEIGHT = document.getElementById("scene").clientHeight;
-  	renderer.setSize( WIDTH, HEIGHT );
-}
-
+//Allows User to edit the name of an object
 function editList(event){
 	if (!editingList){
 		// makeUndraggable(event.target.attached);
@@ -536,39 +495,218 @@ function editList(event){
 		event.target.appendChild(form);
 		input.select();
 	}	
+};
+/**************************************************************************************\
+|******************************  MENU BUTTON INTERACTIONS  ****************************|
+\**************************************************************************************/
+function showEditOptions() {
+    document.getElementById("myDropdown").classList.toggle("show");
+};
+
+function edit_rotate(){
+	document.getElementById("dropBtn").innerHTML = 'Cursor: Edit'
+	document.getElementById("scene").style.cursor = "pointer";
+	cursorMode = 'edit';
+	closeMenu();
+};
+
+function pan(){
+	document.getElementById("dropBtn").innerHTML = 'Cursor: Pan';
+	document.getElementById("scene").style.cursor = "-webkit-grab";
+	cursorMode = 'pan';
+	closeMenu();
+};
+
+function rotate(){
+	document.getElementById("dropBtn").innerHTML = 'Cursor: Rotate'
+	document.getElementById("scene").style.cursor = "url('/images/rotate.png'), auto";
+	cursorMode = 'rotate';
+	closeMenu();
+};
+
+function closeMenu(){
+	var dropdowns = document.getElementsByClassName("dropdown-content");
+    var i;
+    for (i = 0; i < dropdowns.length; i++) {
+	     var openDropdown = dropdowns[i];
+	     if (openDropdown.classList.contains('show')) {
+	        openDropdown.classList.remove('show');
+	     }
+    }
+};
+
+function toggleGrid(){
+	grid.visible = !grid.visible;
+	if (grid.visible){
+		ground_material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ color: 'white' })
+		);
+	} else{
+		ground_material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/grass.png' ) })
+		);
+		ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
+		ground_material.map.repeat.set( 3, 3 );
+	}
+	ground.material = ground_material;
+};
+
+function centerView(){
+	cameraCenter = new THREE.Vector3(0,0,0),
+	theta = 0, phi = 30,
+	cameraRadius = maxRadius;
+
+	camera.position.x = maxRadius * Math.sin( theta * Math.PI / 360 )
+                            * Math.cos( phi * Math.PI / 360 );
+    camera.position.y = maxRadius * Math.sin( phi * Math.PI / 360 );
+    camera.position.z = maxRadius * Math.cos( theta * Math.PI / 360 )
+                            * Math.cos( phi * Math.PI / 360 );
+	camera.lookAt( cameraCenter );
+};
+
+/**************************************************************************************\
+|*******************************  GAME STATE FUNCTIONS  *******************************|
+\**************************************************************************************/
+
+function swapMode(){
+	document.getElementById("play_edit_btn").innerHTML = mode;
+	var buttons = document.getElementsByClassName("navElement");
+
+	if (mode == "EDIT"){
+		play(buttons);
+	} else{
+		edit(buttons);
+	}
+	resize();
 }
 
+function play(buttons){
+	mode = "PLAY";
+	centerView();
+	for (var i=0; i<buttons.length; i++){
+		buttons[i].style.display = "none";
+	}	
+	for (var i=0; i<scene.objects.length; i++){
+		saveObject(scene.objects[1]);
+	}	
+
+	document.getElementById("sidebar").style.display = "none";
+	document.getElementById("sceneOptions").style.display = "none";
+	document.getElementById("scene").style.height = "100%";
+	document.getElementById("editor").style.width = "100%";
+	grid.visible = false;
+	
+	ground_material = Physijs.createMaterial(
+		new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/grass.png' ) })
+	);
+	ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
+	ground_material.map.repeat.set( 3, 3 );
+	ground.material = ground_material;
+}
+
+function edit(buttons){
+	mode = "EDIT";
+	for (var i=0; i<buttons.length; i++){
+		buttons[i].style.display = "inline-block";
+	}	
+	for (var i=0; i<scene.objects.length; i++){
+		resetObject(scene.objects[1]);
+	}	
+
+	document.getElementById("sidebar").style.display = "block";
+	document.getElementById("sceneOptions").style.display = "block";
+	document.getElementById("scene").style.height = "70%";
+	document.getElementById("editor").style.width = "83%";
+	grid.visible = true;
+
+	ground_material = Physijs.createMaterial(
+		new THREE.MeshLambertMaterial({ color: 'white' })
+	);
+	ground.material = ground_material;
+}
+
+function saveObject(element){
+	console.log(element.position);
+	scene.startPositions[element.name] = new THREE.Vector3(element.position.x, element.position.y, element.position.z);
+	element.mass = 1;
+}
+
+function resetObject(element){
+	element.mass = 0;
+	element.setLinearVelocity(new THREE.Vector3(0, 0, 0));
+    element.setAngularVelocity(new THREE.Vector3(0, 0, 0));
+
+    element.__dirtyPosition = true;
+    var old = scene.startPositions[element.name];
+    element.position.set(old.x, old.y, old.z);
+}
+
+function resize(event){
+	WIDTH = document.getElementById("scene").clientWidth;
+  	HEIGHT = document.getElementById("scene").clientHeight;
+  	renderer.setSize( WIDTH, HEIGHT );
+}
 
 /**************************************************************************************\
 |********************************  CREATION FUNCTIONS  ********************************|
 \**************************************************************************************/
 
 function addCube(){
-	var width = gridStep,
-		height = gridStep,
-		depth = gridStep;
-		
-	var cube = makeBox(width, height, depth, 0xCC0000);
+	var geometry = new THREE.BoxGeometry( gridStep, gridStep, gridStep );
+	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
+		0, // medium friction
+		.3 // low restitution
+	);
+
+	//Randomize colors of faces
+	// var hex = Math.random() * 0xffffff;
+	// for ( var i = 0; i < geometry.faces.length; i += 2 ) {
+	// 	geometry.faces[ i ].color.setHex( hex );
+	// 	geometry.faces[ i + 1 ].color.setHex( hex );
+	// }
+
+	var cube = new Physijs.BoxMesh( geometry, material);
 	addElement(cube);
-	cube.position.y = 100;
 }
 
 function addSphere(){
-	var radius = gridStep/2,
-		segments = gridStep*2,
-		rings = gridStep*2;
+	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
+		0, // medium friction
+		.3 // low restitution
+	);
+	var sphere = new Physijs.SphereMesh(
+	  new THREE.SphereGeometry(
+	    radius = gridStep/2,
+	    segments = 8,
+	    rings = 8),
+	  material);
 
-	var sphere = makeSphere(radius, segments, rings);
 	addElement(sphere);
 }
 
 function addCylinder(){
-	var cylinder = makeCylinder(gridStep/2, gridStep/2, gridStep, gridStep*2);
+	var radiusTop = gridStep/2, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
+	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
+		0, // medium friction
+		.3 // low restitution
+	);
+	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
+	var cylinder = new Physijs.CylinderMesh( geometry, material );
 	addElement(cylinder);
 }
 
 function addCone(){
-	var cone = makeCylinder(0.001, gridStep/2, gridStep, gridStep*2);
+	var radiusTop = 0.001, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
+	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
+		0, // medium friction
+		.3 // low restitution
+	);
+	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
+	var cone = new Physijs.CylinderMesh( geometry, material );
 	addElement(cone);
 }
 
@@ -583,13 +721,14 @@ function addElement(element){
 	//Name
 	currIndex = scene.objects.length;
 	element.name = "Object" + (currIndex + 1);
+	element.position.set(0, 0, 0);
+	element.mass = 0;
 
 	//Add to Scene
 	scene.add( element );
 	scene.objects.push( element ); 
 
 	//Make Shadow
-	element.position.y = gridStep/2;
 	element.shadow = makeShadow(element);
 	element.shadow.update(groundPlane, lightPosition4D);
 	element.renderOrder = 10;
@@ -597,190 +736,33 @@ function addElement(element){
 	selectObj(element);
 }
 
-function makeBox(width, height, depth, hexColor){
-	var geometry = new THREE.BoxGeometry( width, height, depth );
-	handleCollision = function( collided_with, linearVelocity, angularVelocity ) {
-		console.log("collision");
-		switch ( ++this.collisions ) {
-			
-			case 1:
-				this.material.color.setHex(0xcc8855);
-				break;
-			
-			case 2:
-				this.material.color.setHex(0xbb9955);
-				break;
-			
-			case 3:
-				this.material.color.setHex(0xaaaa55);
-				break;
-			
-			case 4:
-				this.material.color.setHex(0x99bb55);
-				break;
-			
-			case 5:
-				this.material.color.setHex(0x88cc55);
-				break;
-			
-			case 6:
-				this.material.color.setHex(0x77dd55);
-				break;
-		}
-	}
-	var material = Physijs.createMaterial(
-		new THREE.MeshLambertMaterial( { vertexColors: THREE.FaceColors, overdraw: 0.5 } ),
-		.6, // medium friction
-		.3 // low restitution
-	);
-
-	//Randomize colors of faces
-	var hex = Math.random() * 0xffffff;
-	for ( var i = 0; i < geometry.faces.length; i += 2 ) {
-		geometry.faces[ i ].color.setHex( hex );
-		geometry.faces[ i + 1 ].color.setHex( hex );
-	}
-
-	var box = new Physijs.BoxMesh( geometry, material, 10 );
-	box.collisions = 0;
-	box.castShadow = true;
-	box.receiveShadow = true;
-	box.addEventListener( 'collision', handleCollision );
-	box.addEventListener( 'ready', makeBox );
-	return box;
-}
-
-function makeSphere(radius, segments, rings){
-	var sphereMaterial = 
-	  new THREE.MeshLambertMaterial(
-	    {
-	      color: Math.random() * 0xffffff
-	    });
-
-	var sphere = new THREE.Mesh(
-
-	  new THREE.SphereGeometry(
-	    radius,
-	    segments,
-	    rings),
-
-	  sphereMaterial);
-
-	return sphere;
-}
-
-function makeCylinder(radiusTop, radiusBottom, height, radiusSegments){
-	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
-	var material = new THREE.MeshLambertMaterial( {color: Math.random() * 0xffffff} );
-	var cylinder = new THREE.Mesh( geometry, material );
-	return cylinder;
-}
-
-/**************************************************************************************\
-|*********************************  CONTROL FUNCTIONS  ********************************|
-\**************************************************************************************/
-
 function makeShadow(element){
 	shadow = new THREE.ShadowMesh( element );
-	shadow.renderOrder = -1;
+	shadow.renderOrder = 0;
+	shadow.name = element.name + " shadow";
 	scene.add( shadow );
 	scene.shadows.push(shadow);
 	return shadow;
-}
-
-function makeDraggable(element){
-	control = new THREE.TransformControls( camera, renderer.domElement );
-	control.setTranslationOffset( 0, gridStep/2, 0 );
-	control.setTranslationSnap( gridStep );
-	control.setXBound(-gridSize + gridStep, gridSize);
-	control.setZBound(-gridSize + gridStep, gridSize);
-	control.setYBound(0, gridSize/2);
-	control.addEventListener( 'change', render );
-	control.attach( element );
-	scene.add( control );
-	draggedElement = element;
-	element.listLink.focus();
-	window.addEventListener( 'keydown', setManipulationControlsDown);
-	element.material.opacity = 0.3;
-	document.getElementById("info").style.opacity = 1;
-}
-
-function makeUndraggable(element){
-	// window.removeEventListener('keyup', setManipulationControlsUp);
-	window.removeEventListener('keydown', setManipulationControlsDown);
-	control.removeEventListener( 'change', render );
-	control.dispose();
-	scene.remove( control );
-	control = undefined;
-	draggedElement = false;
-	element.material.opacity = 1;
-	document.getElementById("info").style.opacity = 0;
-}
-
-function setManipulationControlsDown( event ){
-	switch ( event.keyCode ) {
-			case 81: // Q
-				control.setMode( "translate" );
-				break;
-
-			case 87: // W
-				control.setMode( "rotate" );
-				break;
-
-			case 69: // E
-				control.setMode( "scale" );
-				break;
-
-			// case 82: // R
-			// 	control.setTranslationSnap( snapIncrement );
-			// 	control.setRotationSnap( THREE.Math.degToRad( 15 ) );
-			// 	break;
-
-			// case 84: // T
-			// 	control.setSpace( control.space === "local" ? "world" : "local" );
-			// 	break;
-
-			// case 187:
-			// case 107: // +, =, num+
-			// 	control.setSize( control.size + 0.1 );
-			// 	break;
-
-			// case 189:
-			// case 109: // -, _, num-
-			// 	control.setSize( Math.max( control.size - 0.1, 0.1 ) );
-			// 	break;
-
-		}
-}
-
-function intersectObjects( pointer, objects ) {
-
-	var rect = renderer.domElement.getBoundingClientRect();
-	var x = ( pointer.clientX - rect.left ) / rect.width;
-	var y = ( pointer.clientY - rect.top ) / rect.height;
-
-	pointerVector.set( ( x * 2 ) - 1, - ( y * 2 ) + 1 );
-	raycaster.setFromCamera( pointerVector, camera );
-
-	var intersections = raycaster.intersectObjects( objects, true );
-	return intersections;
-
 }
 
 /**************************************************************************************\
 |********************************  ANIMATION FUNCTIONS  *******************************|
 \**************************************************************************************/
 
-function animate() {
+// function animate() {
+// 	if (SELECTED){
+// 		SELECTED.shadow.update(groundPlane, lightPosition4D);
+// 	}
+// 	render();
+// 	scene.simulate();
+// }
+
+function render() {
 	if (SELECTED){
 		SELECTED.shadow.update(groundPlane, lightPosition4D);
 	}
-	render();
-
-}
-
-function render() {
-	requestAnimationFrame( animate );
+	scene.simulate();
+	requestAnimationFrame( render );
 	renderer.render( scene, camera );
 	// sphere_vel_x = bounceX(sphere, 40, VIEW_WIDTH, sphere_vel_x)
 	// sphere_vel_y = bounceY(sphere, 40, VIEW_HEIGHT, sphere_vel_y)
