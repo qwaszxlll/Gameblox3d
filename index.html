@@ -26,20 +26,28 @@
 			</button>
 			<button class="button" id="play_edit_btn" onclick="swapMode()"> PLAY </button>
 		</div>
-		<div id="sidebar">
+		<div id="sidebar" class="sidebar">
 			<div id="sidebar_contents">
 				<div class="subTitle"> Add New Object </div>
 				<button class="button" onclick="addCube()"> 
 					<img src="images/cube.png"> 
-				</button>
-				<button class="button" onclick="addCone()"> 
-					<img src="images/cone.png"> 
-				</button>
-				<button class="button" onclick="addCylinder()"> 
-					<img src="images/cylinder.png"> 
+					<p>Class 1</p>
 				</button>
 				<button class="button" onclick="addSphere()"> 
 					<img src="images/sphere.png"> 
+					<p>Class 2</p>
+				</button>
+				<button class="button" onclick="addCylinder()"> 
+					<img src="images/cylinder.png"> 
+					<p>Class 3</p>
+				</button>
+				<!-- <button class="button" onclick="addCone()"> 
+					<img src="images/cone.png"> 
+					<p>Class 3</p>
+				</button> -->
+				<button id="heroBtn" class="button" onclick="addCone()"> 
+					<img src="images/hero.png"> 
+					<p>Hero</p>
 				</button>
 				<button class="button" onclick="newObject()"> 
 					<img src="images/add.png"> 
@@ -58,6 +66,95 @@
 				<div class="spacer"></div>
 				<div class="subTitle noselect"> Options </div>
 			</div>
+		</div>
+		<div id="rightbar" class="sidebar">
+			<div id="rightMode">
+				<div id="editSelectedBtn" class="rightmodeBtn" onclick="editSelected()">
+					<img src="images/selected.png">
+					<p>Selected</p>
+				</div
+				><div id="editWorldBtn" class="rightmodeBtn" onclick="editWorld()">
+					<img src="images/world.png"> 
+					<p>World</p>
+				</div>
+			</div>
+			<form id="editSelected" class="noselect rightContainer" onsubmit = "return submitSelectedForm()">
+				<div class="subTitle noselect"> Individual </div>
+				<p class="noselect"> Position </p>
+				<div>
+					<label> <input type="text" name="pos_x"/> x </label>
+					<label> <input type="text" name="pos_y"/> y </label>
+					<label> <input type="text" name="pos_z"/> z </label>
+				</div>
+				<p class="noselect"> Scale </p>
+				<div>
+					<label> <input type="text" name="scale_x"/> x </label>
+					<label> <input type="text" name="scale_y"/> y </label>
+					<label> <input type="text" name="scale_z"/> z </label>
+				</div>
+				<p class="noselect"> Rotation </p>
+				<div>
+					<label> <input type="text" name="rot_x"/> x </label>
+					<label> <input type="text" name="rot_y"/> y </label>
+					<label> <input type="text" name="rot_z"/> z </label>
+				</div>
+				<div class="subTitle noselect low"> Class </div>
+				<p class="noselect"> Class Type </p>
+				<div>
+					<select id="classDropdown" name="classType">
+						<option value="terrain">Terrain</option>
+					  	<option value="enemy">Enemy</option>
+					  	<option value="hero">Hero</option>
+					</select>
+				</div>
+				<p class="noselect"> Physics </p>
+				<div>
+					<label> <input type="text" name="mass"/> Mass </label>
+					<label> <input type="text" name="friction"/> Friction </label>
+					<label> <input type="text" name="bounce"/> Bounce </label>
+				</div>
+				<p class="noselect"> Start Velocity </p>
+				<div>
+					<label> <input type="text" name="vel_x"/> x </label>
+					<label> <input type="text" name="vel_y"/> y </label>
+					<label> <input type="text" name="vel_z"/> z </label>
+				</div>
+				<!-- <p class="noselect"> Damping </p>
+				<div>
+					<label> <input type="text" name="damping_x"/> x </label>
+					<label> <input type="text" name="damping_y"/> y </label>
+					<label> <input type="text" name="damping_z"/> z </label>
+				</div> -->
+				<p class="noselect"> Properties </p>
+				<div>
+					<label> <input class='checkbox' type="checkbox" name="invis"/> Invisible </label>
+					<label> <input class='checkbox' type="checkbox" name="drag"/> Draggable </label>
+					<label> <input class='checkbox' type="checkbox" name="stop_drag"/> Stop After Drag </label>
+					<label> <input class='checkbox' type="checkbox" name="collision"/> Ignore Collision </label>
+					<label> <input class='checkbox' type="checkbox" name="edges"/> Ignore Edges </label>
+				</div>
+				<input type="submit" value="Submit" style="display: none" />
+			</form>
+			<form id="editWorld" class="noselect rightContainer">
+				<div class="subTitle noselect"> Individual </div>
+				<p> Boundaries </p>
+				<div>
+					<label> <input type="text" name="sideLength"/> width/depth </label>
+					<label> <input type="text" name="height"/> height </label>
+				</div>
+				<p> Game Properties </p>
+				<div>
+					<label> <input type="text" name="fps"/> fps </label>
+				</div>
+				<div>
+					<label> <input class='checkbox' type="checkbox" name="multiplayer"/> Multiplayer Enabled </label>
+				</div>
+				<p> Assets </p>
+				<div>
+					<label> <input type="text" name="ground"/> Ground </label>
+					<label> <input type="text" name="background"/> Background </label>
+				</div>
+			</form>
 		</div>
 
 		

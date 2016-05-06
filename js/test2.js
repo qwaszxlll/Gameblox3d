@@ -5,7 +5,7 @@ Physijs.scripts.ammo = 'ammo.js';
 // Scene and Camera Attributes
 var WIDTH = document.getElementById("scene").clientWidth,
   	HEIGHT = document.getElementById("scene").clientHeight,
-  	gridSize = 21, gridStep = 1, gridOffset = 0,
+  	gridSize = 21, gridStep = 1, gridOffset = 0, gridHeight = 0,
   	theta = 0, phi = 60,
   	onMouseDownTheta = theta, onMouseDownPhi = phi,
   	panStart = new THREE.Vector3(),
@@ -15,8 +15,12 @@ var WIDTH = document.getElementById("scene").clientWidth,
   	maxRadius = gridSize,
   	cameraRadius = maxRadius;
 
+//Play Variables
+var fps = 60, multiplayer = false;
+
 //Control Variables
 var mode = 'EDIT',
+	rightbarMode = 'selected',
 	cursorMode = 'edit',
 	editingList = false;
 
@@ -28,12 +32,15 @@ var control = undefined,
 	SELECTED = false,
 	mouseDown = false,
 	onMouseDownPosition = [0,0],
-	selectOpacity = 0.8,
+	selectOpacity = 0.6,
 	normalVector = new THREE.Vector3( 0, 1, 0 );
 var pointerVector = new THREE.Vector2();
 
+//Model Variables
+var loader = new THREE.JSONLoader();
+
 //Physics Variables
-var collided = false;
+var bounce = 0.3;
 
 //Shadow variables
 var planeConstant = -gridStep/2, // this value must be slightly higher than the groundMesh's y position of 0.0
@@ -54,6 +61,7 @@ var offset = new THREE.Vector3();
 var worldRotationMatrix  = new THREE.Matrix4();
 var oldRotationMatrix = new THREE.Matrix4();
 var tempMatrix = new THREE.Matrix4();
+var rotObjectMatrix;
 
 init();
 
@@ -118,8 +126,8 @@ function init(){
 	// Ground
 	ground_material = Physijs.createMaterial(
 		new THREE.MeshLambertMaterial({ color: 'white', visible: true}),
-		.8, // high friction
-		.3 // low restitution
+		0, // high friction
+		bounce // low restitution
 	);
 	ground = new Physijs.BoxMesh(
 		new THREE.CubeGeometry(gridSize, 0.01, gridSize),
@@ -134,22 +142,7 @@ function init(){
 	ground.receiveShadow = true;
 	scene.add( ground );
 
-	// var wall_material = Physijs.createMaterial(
-	// 	new THREE.MeshLambertMaterial({ color: 'white', visible: false}),
-	// 	.8, // high friction
-	// 	.3 // low restitution
-	// );
-	// var north_wall = new Physijs.BoxMesh(
-	// 	new THREE.CubeGeometry(gridSize, 0.01, gridSize),
-	// 	wall_material,
-	// 	0 // mass
-	// );
-	// north_wall.position.set(0, -gridStep/2, gridSize/2);
-	// north_wall.renderOrder = -2;
-	// north_wall.frustumCulled = false;
-	// camera.add( north_wall );
-	// north_wall.receiveShadow = true;
-	// scene.add( north_wall );
+	buildWalls();
 
 
 	//Configure Lighting
@@ -197,8 +190,42 @@ function init(){
 	document.getElementById("scene").addEventListener( "touchstart", on_down );
 	document.getElementById("scene").addEventListener( "mousewheel", on_MouseWheel );
 	document.getElementById("scene").onresize = resize;
+	toggleSelected();
 
 	requestAnimationFrame( render );
+}
+
+function buildWalls(){
+	var positions = [
+	[0, gridSize/2 - gridStep, gridSize/2],
+	[-gridSize/2, gridSize/2 - gridStep, 0],
+	[0, gridSize/2 - gridStep, -gridSize/2],
+	[gridSize/2, gridSize/2 - gridStep, 0]];
+
+	var wall_material = Physijs.createMaterial(
+		new THREE.MeshLambertMaterial({ color: 'red', visible: false}),
+		0, // friction
+		1 // restitution
+	);
+
+	for (var i = 0; i < 4; i++){
+		var wall = new Physijs.BoxMesh(
+			new THREE.CubeGeometry(gridSize, 0.01, gridSize),
+			wall_material,
+			0 // mass
+		);
+		wall.position.set(positions[i][0], positions[i][1], positions[i][2]);
+		if (i == 1 || i == 3){
+			rotateAroundObjectAxis(wall, "z", Math.PI/2);
+		}
+		rotateAroundObjectAxis(wall, "x", Math.PI/2);
+		// wall.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
+		// 	var dot = relative_velocity.dot(contact_normal.normalize());
+		// 	var newVel = relative_velocity - contact_normal.multiplyScalar(dot);
+		// 	other_object.setLinearVelocity(newVel);
+		// });
+		scene.add(wall);
+	}
 }
 
 /**************************************************************************************\
@@ -284,6 +311,7 @@ function on_move(event){
 		draggedElement.position.x = Math.round( draggedElement.position.x / gridStep ) * gridStep;
 		// draggedElement.position.y = Math.round( draggedElement.position.y / gridStep ) * gridStep;
 		draggedElement.position.z = Math.round( draggedElement.position.z / gridStep ) * gridStep;
+		updateFormPos();
 
 
 	} else if ((cursorMode == 'rotate' || cursorMode == 'edit') && mouseDown && !draggedElement){
@@ -329,7 +357,7 @@ function on_move(event){
 }
 
 function on_up(event){
-	scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
+	// scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
 	if (draggedElement){
 		draggedElement = false;
 	}
@@ -375,22 +403,6 @@ function roundPosition(element){
 	draggedElement.position.z = Math.round( draggedElement.position.z );
 }
 
-function selectObj(element){
-	element.material.opacity = selectOpacity;
-	SELECTED = element;
-	SELECTED.listLink.style.background = '#69A0E1';
-	SELECTED.listLink.style.color = 'white';
-}
-
-function unselect(){
-	if (SELECTED){
-		SELECTED.material.opacity = 1;
-		SELECTED.listLink.style.background = '';
-		SELECTED.listLink.style.color = '';
-	}
-	SELECTED = false;
-}
-
 function checkCameraBounds(){
 	if (camera.position.length() - cameraCenter.length() > maxRadius){
 		var overflow_frac = (camera.position.length() - cameraCenter.length())/maxRadius
@@ -414,7 +426,32 @@ function intersectObjects( pointer, objects ) {
 
 	var intersections = raycaster.intersectObjects( objects, true );
 	return intersections;
+}
 
+function rotateAroundObjectAxis(object, axis, radians) {
+	var rotAxis;
+	if (axis == "x"){
+		rotAxis = new THREE.Vector3(1,0,0);
+	} else if (axis = "y"){
+		rotAxis = new THREE.Vector3(0,1,0);
+	} else{
+		rotAxis = new THREE.Vector3(0,0,1);
+	}
+	
+    rotObjectMatrix = new THREE.Matrix4();
+    rotObjectMatrix.makeRotationAxis(rotAxis.normalize(), radians);
+
+    // old code for Three.JS pre r54:
+    // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
+    // new code for Three.JS r55+:
+    object.matrix.multiply(rotObjectMatrix);
+
+    // old code for Three.js pre r49:
+    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
+    // old code for Three.js r50-r58:
+    // object.rotation.setEulerFromRotationMatrix(object.matrix);
+    // new code for Three.js r59+:
+    object.rotation.setFromRotationMatrix(object.matrix);
 }
 
 /**************************************************************************************\
@@ -445,9 +482,11 @@ function on_doc_down(event){
 	
 	//Select a cube if name in sidebar is clicked, otherwise unselect all
 	if (event.target != renderer.domElement){
-		unselect();
 		if (event.target.localName == "li"){
-			console.log("select!");
+			if(SELECTED){
+				unselect();
+			}
+			// console.log("select!");
 			selectObj(event.srcElement.attached);
 		}
 	}
@@ -568,6 +607,246 @@ function centerView(){
 |*******************************  GAME STATE FUNCTIONS  *******************************|
 \**************************************************************************************/
 
+function selectObj(element){
+	element.material.opacity = selectOpacity;
+	SELECTED = element;
+	SELECTED.listLink.style.background = '#69A0E1';
+	SELECTED.listLink.style.color = 'white';
+	toggleSelected();
+}
+
+function unselect(){
+	if (SELECTED){
+		readForm(SELECTED);
+		SELECTED.material.opacity = 1;
+		SELECTED.listLink.style.background = '';
+		SELECTED.listLink.style.color = '';
+	}
+	SELECTED = false;
+	toggleSelected();
+}
+
+function toggleSelected(){
+	var inputs = document.getElementById("editSelected")
+	var disabled = true;
+
+	if (SELECTED){
+		disabled = false;
+	}
+	for (var i=0; i < inputs.length; i++){
+		inputs[i].disabled = disabled;
+		if (SELECTED){
+			fillForm(inputs[i], SELECTED);
+		} else{
+			if (inputs[i].type == "text"){
+				inputs[i].value = "";
+			} else if (inputs[i].type == "checkbox"){
+				inputs[i].checked = false;
+			} else{
+				inputs[i].value = "terrain";
+			}
+		}
+	}
+}
+
+function updateFormPos(){
+	var inputs = document.getElementById("editSelected")
+	inputs[0].value = SELECTED.position.x;
+	inputs[2].value = SELECTED.position.z;
+}
+
+function fillForm(input, selected){
+	switch(input.name){
+		case "pos_x":
+			selected.__dirtyPosition = true;
+			input.value = selected.position.x;
+			break;
+		case "pos_y":
+			selected.__dirtyPosition = true;
+			input.value = selected.position.y;
+			break;
+		case "pos_z":
+			selected.__dirtyPosition = true;
+			input.value = selected.position.z;
+			break;
+		case "scale_x":
+			input.value = selected.scale.x;
+			break;
+		case "scale_y":
+			input.value = selected.scale.y;
+			break;
+		case "scale_z":
+			input.value = selected.scale.z;
+			break;
+		case "rot_x":
+			selected.__dirtyRotation = true;
+			input.value = selected.rotation.x;
+			break;
+		case "rot_y":
+			selected.__dirtyRotation = true;
+			input.value = selected.rotation.y;
+			break;
+		case "rot_z":
+			selected.__dirtyRotation = true;
+			input.value = selected.rotation.z;
+			break;
+		case "classType":			
+			if (selected.classType == "hero"){
+				input.value = "hero";
+				input.disabled = true;
+			} else{
+				document.getElementById("classDropdown").options[2].style.display = "none";
+			}
+		case "mass":
+			input.value = selected.playAttributes.mass;
+			break;
+		case "friction":
+			input.value = selected.material._physijs.friction;
+			break;
+		case "bounce":
+			input.value = selected.material._physijs.restitution;
+			break;
+		case "vel_x":
+			input.value = selected.playAttributes.velocity.x;
+			break;
+		case "vel_y":
+			input.value = selected.playAttributes.velocity.y;
+			break;
+		case "vel_z":
+			input.value = selected.playAttributes.velocity.z;
+			break;
+		case "invis":
+			input.checked = selected.playAttributes.invisible;
+			break;
+		case "drag":
+			input.checked = selected.playAttributes.draggable;
+			break;
+		case "stop_drag":
+			input.checked = selected.playAttributes.stop_after_drag;
+			break;
+		case "collision":
+			input.checked = selected.playAttributes.ignore_collision;
+			break;
+		case "edges":
+			input.checked = selected.playAttributes.ignore_edges;
+			break;
+		default:
+	}
+}
+
+function readForm(selected){
+	var inputs = document.getElementById("editSelected");
+	for (var i=0; i < inputs.length; i++){
+		var input = inputs[i];
+		input.blur();
+		switch(input.name){
+			case "pos_x":
+				selected.position.set(input.value, selected.position.y, selected.position.z);
+				break;
+			case "pos_y":
+				selected.position.set(selected.position.x, input.value, selected.position.z);
+				break;
+			case "pos_z":
+				selected.position.set(selected.position.x, selected.position.y, input.value);
+				break;
+			case "scale_x":
+				selected.scale.x = input.value;
+				break;
+			case "scale_y":
+				selected.scale.y = input.value;
+				break;
+			case "scale_z":
+				selected.scale.z = input.value;
+				break;
+			case "rot_x":
+				selected.rotation.x = input.value;
+				break;
+			case "rot_y":
+				selected.rotation.y = input.value;
+				break;
+			case "rot_z":
+				selected.rotation.z = input.value;
+				break;
+			case "classType":			
+				if (selected.classType != "hero"){
+					selected.classType = input.value
+				}
+			case "mass":
+				selected.playAttributes.mass = input.value;
+				break;
+			case "friction":
+				selected.material._physijs.friction = input.value;
+				break;
+			case "bounce":
+				selected.material._physijs.restitution = input.value;
+				break;
+			case "vel_x":
+				selected.playAttributes.velocity.x = input.value;
+				break;
+			case "vel_y":
+				selected.playAttributes.velocity.y = input.value;
+				break;
+			case "vel_z":
+				selected.playAttributes.velocity.z = input.value;
+				break;
+			case "invis":
+				selected.playAttributes.invisible = input.value;
+				break;
+			case "drag":
+				selected.playAttributes.draggable = input.value;
+				break;
+			case "stop_drag":
+				selected.playAttributes.stop_after_drag = input.value;
+				break;
+			case "collision":
+				selected.playAttributes.ignore_collision = input.value;
+				break;
+			case "edges":
+				selected.playAttributes.ignore_edges = input.value;
+				break;
+			default:
+		}
+	}
+}
+
+function submitSelectedForm(){
+	readForm(SELECTED);
+	return false;
+}
+
+function fillWorldForm(){
+	var inputs = document.getElementById("editWorld")
+	inputs[0].value = gridSize;
+	inputs[1].value = gridHeight;
+	inputs[2].value = fps;
+	inputs[3].checked = multiplayer;
+}
+
+function editSelected(){
+	document.getElementById("editSelectedBtn").style.background = "#69A0E1";
+	document.getElementById("editSelectedBtn").style.color = "white";
+	document.getElementById("editWorldBtn").style.background = "#F3F3F3";
+	document.getElementById("editWorldBtn").style.color = "#2A292A";
+	console.log(document.getElementById("editSelected").childNodes[1]);
+
+	document.getElementById("editSelected").style.display = "block";
+	document.getElementById("editWorld").style.display = "none";
+	rightbarMode = 'selected';
+
+	toggleSelected();
+}
+
+function editWorld(){
+	document.getElementById("editWorldBtn").style.background = "#69A0E1";
+	document.getElementById("editWorldBtn").style.color = "white";
+	document.getElementById("editSelected").style.display = "none";
+	document.getElementById("editSelectedBtn").style.background = "#F3F3F3";
+	document.getElementById("editSelectedBtn").style.color = "#2A292A";
+	document.getElementById("editWorld").style.display = "block";
+	rightbarMode = 'world';
+	fillWorldForm();
+}
+
 function swapMode(){
 	document.getElementById("play_edit_btn").innerHTML = mode;
 	var buttons = document.getElementsByClassName("navElement");
@@ -587,17 +866,20 @@ function play(buttons){
 		buttons[i].style.display = "none";
 	}	
 	for (var i=0; i<scene.objects.length; i++){
-		saveObject(scene.objects[1]);
+		saveObject(scene.objects[i]);
 	}	
 
 	document.getElementById("sidebar").style.display = "none";
+	document.getElementById("rightbar").style.display = "none";
 	document.getElementById("sceneOptions").style.display = "none";
 	document.getElementById("scene").style.height = "100%";
 	document.getElementById("editor").style.width = "100%";
+	document.getElementById("editor").style.left = 0;
 	grid.visible = false;
 	
 	ground_material = Physijs.createMaterial(
-		new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/grass.png' ) })
+		new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/grass.png' ) }),
+		bounce
 	);
 	ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
 	ground_material.map.repeat.set( 3, 3 );
@@ -610,25 +892,28 @@ function edit(buttons){
 		buttons[i].style.display = "inline-block";
 	}	
 	for (var i=0; i<scene.objects.length; i++){
-		resetObject(scene.objects[1]);
+		resetObject(scene.objects[i]);
 	}	
 
 	document.getElementById("sidebar").style.display = "block";
+	document.getElementById("rightbar").style.display = "block";
 	document.getElementById("sceneOptions").style.display = "block";
 	document.getElementById("scene").style.height = "70%";
-	document.getElementById("editor").style.width = "83%";
+	document.getElementById("editor").style.width = "66%";
+	document.getElementById("editor").style.left = "17%";
 	grid.visible = true;
 
 	ground_material = Physijs.createMaterial(
-		new THREE.MeshLambertMaterial({ color: 'white' })
+		new THREE.MeshLambertMaterial({ color: 'white' }),
+		bounce
 	);
 	ground.material = ground_material;
 }
 
 function saveObject(element){
-	console.log(element.position);
 	scene.startPositions[element.name] = new THREE.Vector3(element.position.x, element.position.y, element.position.z);
 	element.mass = 1;
+	element.setLinearVelocity(element.playAttributes.velocity);
 }
 
 function resetObject(element){
@@ -655,26 +940,20 @@ function addCube(){
 	var geometry = new THREE.BoxGeometry( gridStep, gridStep, gridStep );
 	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
 	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-		0, // medium friction
-		.3 // low restitution
+		0, // friction
+		0.9 // restitution
 	);
 
-	//Randomize colors of faces
-	// var hex = Math.random() * 0xffffff;
-	// for ( var i = 0; i < geometry.faces.length; i += 2 ) {
-	// 	geometry.faces[ i ].color.setHex( hex );
-	// 	geometry.faces[ i + 1 ].color.setHex( hex );
-	// }
-
 	var cube = new Physijs.BoxMesh( geometry, material);
+	cube.class = "Class 1"
 	addElement(cube);
 }
 
 function addSphere(){
 	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
 	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-		0, // medium friction
-		.3 // low restitution
+		0, // friction
+		0.9 // restitution
 	);
 	var sphere = new Physijs.SphereMesh(
 	  new THREE.SphereGeometry(
@@ -683,6 +962,7 @@ function addSphere(){
 	    rings = 8),
 	  material);
 
+	sphere.class = "Class 2"
 	addElement(sphere);
 }
 
@@ -690,11 +970,13 @@ function addCylinder(){
 	var radiusTop = gridStep/2, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
 	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
 	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-		0, // medium friction
-		.3 // low restitution
+		0, // friction
+		1 // restitution
 	);
 	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
 	var cylinder = new Physijs.CylinderMesh( geometry, material );
+
+	cylinder.class = "Class 3"
 	addElement(cylinder);
 }
 
@@ -707,7 +989,40 @@ function addCone(){
 	);
 	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
 	var cone = new Physijs.CylinderMesh( geometry, material );
+
+	cone.class = "hero"
 	addElement(cone);
+}
+
+function addHero(){
+	var loader = new THREE.ObjectLoader();
+	// var loader = new THREE.JSONLoader();
+
+	loader.load("models/player.json",function ( obj ) {
+		// var bear = obj.children[0];
+		// bear.renderOrder = 10;
+		// // bear.position.y = 1;
+		// // bear.scale = new THREE.Vector3(0.5, 0.5, 0.5);
+		// console.log(bear)
+		// scene.add(bear);
+		console.log(obj);
+		scene.add(obj)
+		obj.shadow = makeShadow(obj);
+		obj.shadow.update(groundPlane, lightPosition4D);
+		obj.renderOrder = 10;
+
+		scene.objects.push(obj)
+	});
+	
+	// loader.load( 'models/player.json', function ( geometry, materials ) {
+	//     var bear = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial( materials ) );
+	//     console.log(bear)
+	// 	scene.add( bear );
+	// 	// scene.objects.push( bear ); 
+	// 	// bear.shadow = makeShadow(bear);
+	// 	// bear.shadow.update(groundPlane, lightPosition4D);
+	// 	// bear.renderOrder = 10;
+	// });	
 }
 
 function newObject(){
@@ -715,18 +1030,41 @@ function newObject(){
 }
 
 function addElement(element){
-	// object = new THREE.Object3D(); //SHADOW STUFF, NOT WORKING YET
-	// object.add(element); //SHADOW STUFF, NOT WORKING YET
-	// object.castShadow = true; //SHADOW STUFF, NOT WORKING YET
+	unselect();
 	//Name
 	currIndex = scene.objects.length;
 	element.name = "Object" + (currIndex + 1);
+	if (element.class == "hero"){
+		element.classType = "hero"
+		document.getElementById("heroBtn").style.display = "none";
+		element.name = "Hero"
+		currIndex -= 1;
+	} else{
+		element.classType = "terrain"
+	}
+
 	element.position.set(0, 0, 0);
 	element.mass = 0;
+	element.playAttributes = {
+		velocity: new THREE.Vector3(5 * (Math.random() - 0.5) , 20 * (Math.random() - 0.5), 5 * (Math.random() - 0.5)),
+		mass: 1,
+		invisible: false,
+		draggable: false,
+		stop_after_drag: true,
+		ignore_collision: false,
+		ignore_edges: false
+		// velocity: new THREE.Vector3(50 * (Math.random() - 0.5) ,0,0)
+	}
 
 	//Add to Scene
 	scene.add( element );
 	scene.objects.push( element ); 
+
+	// Enable CCD if the object moves more than 1 meter in one simulation frame
+	element.setCcdMotionThreshold(1);
+
+	// Set the radius of the embedded sphere such that it is smaller than the object
+	element.setCcdSweptSphereRadius(0.2);
 
 	//Make Shadow
 	element.shadow = makeShadow(element);
@@ -758,13 +1096,18 @@ function makeShadow(element){
 // }
 
 function render() {
-	if (SELECTED){
-		SELECTED.shadow.update(groundPlane, lightPosition4D);
-	}
+	// if (SELECTED){
+	// 	SELECTED.shadow.update(groundPlane, lightPosition4D);
+	// }
+	// if (mode == "PLAY"){
+	// 	for (var i = 0; i < scene.objects.length; i++){
+	// 		scene.objects[i].shadow.update(groundPlane, lightPosition4D);
+	// 	}
+	// }
+	for (var i = 0; i < scene.objects.length; i++){
+			scene.objects[i].shadow.update(groundPlane, lightPosition4D);
+		}
 	scene.simulate();
 	requestAnimationFrame( render );
 	renderer.render( scene, camera );
-	// sphere_vel_x = bounceX(sphere, 40, VIEW_WIDTH, sphere_vel_x)
-	// sphere_vel_y = bounceY(sphere, 40, VIEW_HEIGHT, sphere_vel_y)
-	// sphere_vel_z = bounceZ(sphere, 20, 100, sphere_vel_z)
 }

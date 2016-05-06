@@ -26,18 +26,18 @@ body {
 	height: 2em;
 }
 
-#sidebar {
+.sidebar {
 	position: absolute;
 	width: 17%;
 	height:100%;
-	margin-top:-1px;
 	box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
     background-color: #ECECEC;
     border-right: #B8B8B8 1px solid;
+    border-left: #B8B8B8 1px solid;
 }
-#sidebar ul{
+.sidebar ul{
 	padding:0;
 	margin:0;
 	list-style-type: none;
@@ -45,27 +45,32 @@ body {
 	font-size: 1em;
 	overflow: scroll;
 }
-#sidebar ul li{
+.sidebar ul li{
 	padding:0.2em;
 	background: rgba(0,0,0,0);
 	padding-left:1em;
 }
-#sidebar ul li:nth-child(odd) { 
+.sidebar ul li:nth-child(odd) { 
 	background: rgba(0,0,0,0.02); 
 }
 
-#sidebar ul li:focus{
+.sidebar ul li:focus{
 	background: #69A0E1;
 	outline: 0;
 	color:white;
+}
+
+#rightbar{
+	right:0;
+	text-align: center;
 }
 
 #editor {
 	position:absolute;
 	margin:0;
 	padding:0;
-	right:0;
-	width:83%;
+	left:17%;
+	width:66%;
 	height:100%;
 	text-align: center;
 }
@@ -98,6 +103,8 @@ body {
 	padding-left:1em;
 	line-height:2em;
 	text-align: left;
+	margin-left:-1px;
+	margin-top:-1px;
 	border: #B8B8B8 1px solid;
 	border-right:none;
 	cursor: default;
@@ -105,7 +112,7 @@ body {
 	background-color: #F3F3F3;
 }
 
-.button{
+button{
 	position:relative;
     font-size: 0.8em;
     border: none;
@@ -113,32 +120,129 @@ body {
     outline:none;
     height:100%;
     width:auto;
-    padding-left:1em;
-    padding-right:1em;
     text-align: center;
+    display:inline-block;
     background: rgba(0,0,0,0);
 }
 
 #sidebar img{
-	height: 90%;
+	height: 65%;
 }
 
-#sidebar .button {
-	display:inline-block;
+#sidebar button {
 	font-size:1.2em;
-	height:2em;
+	height:3em;
+	text-align: center;
+	padding-left:0.5em;
+    padding-right:0.5em;
 }
 
-.button:hover, #dropBtn:focus {
+button:hover, #dropBtn:focus {
 	background-color: #69A0E1;
 	color: white;
 }
 
-.button img:hover{
+button img:hover{
 	opacity: 1;
 }
 
-#centerBtn{
+button p {
+	margin:0;
+	font-size:0.6em;
+	width: 4em;
+	display:block;
+}
+
+#rightMode{
+	width: 100%;
+	/*min-width:10em;*/
+	margin:0;
+	padding:0;
+	margin-left:-1px;
+	display:block;
+	border: #B8B8B8 1px solid;
+	border-right:none;
+	cursor: default;
+	/*color: #7F7F7F;*/
+	background-color: #F3F3F3;
+}
+
+.rightmodeBtn{
+	width: 50%;
+	display:inline-block;
+	border:none;
+	outline:none;
+	margin:none;
+	padding:0;
+	text-align: center;
+	cursor: pointer;
+}
+
+#rightMode div p{
+	margin: 0.4em;
+	margin-top:0;
+	font-size: 0.7em;
+}
+
+#rightMode img{
+	margin-top:0.4em;
+	height:1.4em;
+}
+
+#editSelectedBtn{
+	background: #69A0E1;
+	color: white;
+}
+
+#editWorld{
+	display:none;
+}
+
+.rightContainer{
+	vertical-align: top;
+	text-align: left;
+	font-size:0.9em;
+}
+
+.rightContainer .subTitle{
+	font-weight:bold;
+}
+
+.rightContainer p{
+	margin: 0;
+	margin-left:0.5em;
+	font-size:1em;
+	position:relative;
+	display:inline-block;
+	margin-top:0.7em;
+	vertical-align: top;
+}
+
+.rightContainer label{
+	font-size: 0.7em;
+	margin-top:0.3em;
+	margin-left:1em;
+	display:inline-block;
+	text-align: center;
+}
+
+.rightContainer input{
+	width:4em;
+	display:block;
+}
+
+.rightContainer select{
+	margin-left: 1em;
+}
+
+.rightContainer .low{
+	margin-top:1em;
+}
+
+.rightContainer .checkbox{
+	display:inline-block;
+	margin:0;
+	width:auto;
 }
 
 /* Dropdown Content (Hidden by Default) */
@@ -198,6 +302,17 @@ body {
 
 .spacer{
 	height: 2.5em;
+}
+
+label{
+	-webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none;   /* Chrome/Safari/Opera */
+  -khtml-user-select: none;    /* Konqueror */
+  -moz-user-select: none;      /* Firefox */
+  -ms-user-select: none;       /* IE/Edge */
+  user-select: none;           /* non-prefixed version, currently
+                                  not supported by any browser */
+  cursor: default;
 }
 
 .noselect {
