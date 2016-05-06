@@ -744,6 +744,7 @@ function readForm(selected){
 				selected.position.set(input.value, selected.position.y, selected.position.z);
 				break;
 			case "pos_y":
+				input.value = Math.max(0, input.value)
 				selected.position.set(selected.position.x, input.value, selected.position.z);
 				break;
 			case "pos_z":
@@ -772,6 +773,7 @@ function readForm(selected){
 					selected.classType = input.value
 				}
 			case "mass":
+				input.value = Math.max(0, input.value)
 				selected.playAttributes.mass = input.value;
 				break;
 			case "friction":
@@ -1104,9 +1106,14 @@ function render() {
 	// 		scene.objects[i].shadow.update(groundPlane, lightPosition4D);
 	// 	}
 	// }
-	for (var i = 0; i < scene.objects.length; i++){
-			scene.objects[i].shadow.update(groundPlane, lightPosition4D);
+	if (mode == 'EDIT'){
+		for (var i = 0; i < scene.objects.length; i++){
+			scene.objects[i].__dirtyPosition = true;;
 		}
+	}
+	for (var i = 0; i < scene.objects.length; i++){
+		scene.objects[i].shadow.update(groundPlane, lightPosition4D);
+	}
 	scene.simulate();
 	requestAnimationFrame( render );
 	renderer.render( scene, camera );
