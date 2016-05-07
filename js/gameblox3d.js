@@ -20,7 +20,8 @@ var game3D = function(domElement, mode, testing){
       	cameraCenter = new THREE.Vector3(0,0,0);
 
     //Play Variables
-    var fps = 60, multiplayer = false;
+    var fps = 60, multiplayer = false,
+        block_dispatcher = new block3D.dispatcher();
 
     //Control Variables
     var cursorMode = 'edit',
@@ -138,12 +139,7 @@ var game3D = function(domElement, mode, testing){
         domElement.addEventListener( "touchstart", on_down );
         domElement.addEventListener( "mousewheel", on_MouseWheel );
         domElement.onresize = resize;
-        // toggleSelected();
-        var vel_block = new block3D.motion.velocity(ground, 0, 0, 0);
-        vel_block.trigger();
-        // console.log(blocks_3D);
-        // var block1 = blocks3D.velocity(ground, 0, 0, 0);
-        // var block2 = blocks3D.position(ground, 0, 0, 0);
+        toggleSelected();
 
         //Begin Rendering
         requestAnimationFrame( render );
@@ -663,6 +659,8 @@ var game3D = function(domElement, mode, testing){
     	ground_material.map.wrapS = ground_material.map.wrapT = THREE.RepeatWrapping;
     	ground_material.map.repeat.set( 3, 3 );
     	ground.material = ground_material;
+
+        block_dispatcher.play();
     }
 
     function edit(buttons){
@@ -687,6 +685,8 @@ var game3D = function(domElement, mode, testing){
     		bounce
     	);
     	ground.material = ground_material;
+
+        block_dispatcher.reset();
     }
 
     function toggleSelected(){
@@ -984,6 +984,23 @@ var game3D = function(domElement, mode, testing){
     	var cone = new Physijs.CylinderMesh( geometry, material );
 
     	cone.class = "hero"
+        var move_forward = new block3D.motion.velocity(cone, 0, 0, -5);
+        var move_left = new block3D.motion.velocity(cone, -5, 0, 0);
+        var move_back = new block3D.motion.velocity(cone, 0, 0, 5);
+        var move_right = new block3D.motion.velocity(cone, 5, 0, 0);
+        var jump = new block3D.motion.velocity(cone, 0, 5, 0);
+        var upKey = new block3D.input.whileDown('up', [move_forward]);
+        var leftKey = new block3D.input.whileDown('left', [move_left]);
+        var downKey = new block3D.input.whileDown('down', [move_back]);
+        var rightKey = new block3D.input.whileDown('right', [move_right]);
+        var spaceKey = new block3D.input.onDown('a', [jump]);
+        block_dispatcher.add(upKey);
+        block_dispatcher.add(leftKey);
+        block_dispatcher.add(downKey);
+        block_dispatcher.add(rightKey);
+        block_dispatcher.add(spaceKey);
+        console.log(block_dispatcher);
+
     	return addElement(cone);
     }
 
@@ -1039,14 +1056,14 @@ var game3D = function(domElement, mode, testing){
     	element.position.set(0, 0, 0);
     	element.mass = 0;
     	element.playAttributes = {
-    		velocity: new THREE.Vector3(5 * (Math.random() - 0.5) , 20 * (Math.random() - 0.5), 5 * (Math.random() - 0.5)),
+    		// velocity: new THREE.Vector3(5 * (Math.random() - 0.5) , 20 * (Math.random() - 0.5), 5 * (Math.random() - 0.5)),
     		mass: 1,
     		invisible: false,
     		draggable: false,
     		stop_after_drag: true,
     		ignore_collision: false,
-    		ignore_edges: false
-    		// velocity: new THREE.Vector3(50 * (Math.random() - 0.5) ,0,0)
+    		ignore_edges: false,
+    		velocity: new THREE.Vector3(0,0,0)
     	}
 
     	//Add to Scene
