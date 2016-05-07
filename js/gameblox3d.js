@@ -608,9 +608,13 @@ var game3D = function(domElement, mode, testing){
 
 
     function updateFormPos(){
-    	var inputs = document.getElementById("editSelected")
-    	inputs[0].value = SELECTED.position.x;
-    	inputs[2].value = SELECTED.position.z;
+        if (testing){
+            var inputs = document.getElementById("editSelected")
+        	inputs[0].value = SELECTED.position.x;
+        	inputs[2].value = SELECTED.position.z;
+        } else{
+            //TODO
+        }
     }
 
     this.swapMode = function(){
@@ -943,7 +947,7 @@ var game3D = function(domElement, mode, testing){
     	  material);
 
     	sphere.class = "Class 2"
-    	addElement(sphere);
+    	return addElement(sphere);
     }
 
     this.addCylinder = function(){
@@ -957,7 +961,7 @@ var game3D = function(domElement, mode, testing){
     	var cylinder = new Physijs.CylinderMesh( geometry, material );
 
     	cylinder.class = "Class 3"
-    	addElement(cylinder);
+    	return addElement(cylinder);
     }
 
     this.addCone = function(){
@@ -971,7 +975,7 @@ var game3D = function(domElement, mode, testing){
     	var cone = new Physijs.CylinderMesh( geometry, material );
 
     	cone.class = "hero"
-    	addElement(cone);
+    	return addElement(cone);
     }
 
     this.addHero = function(){
@@ -1050,8 +1054,12 @@ var game3D = function(domElement, mode, testing){
     	element.shadow = makeShadow(element);
     	element.shadow.update(groundPlane, lightPosition4D);
     	element.renderOrder = 10;
-    	updateList();
+
+        if (testing){
+            updateList();
+        }
     	selectObj(element);
+        return element;
     }
 
     function makeShadow(element){
@@ -1061,6 +1069,11 @@ var game3D = function(domElement, mode, testing){
     	scene.add( shadow );
     	scene.shadows.push(shadow);
     	return shadow;
+    }
+
+    this.updatePosition = function(element, x, y, z){
+        element.__dirtyPosition = true;
+        element.position.set(x, y, z);
     }
 
     /**************************************************************************************\
@@ -1078,7 +1091,7 @@ var game3D = function(domElement, mode, testing){
     	// }
     	if (mode == 'EDIT'){
     		for (var i = 0; i < scene.objects.length; i++){
-    			scene.objects[i].__dirtyPosition = true;;
+    			scene.objects[i].__dirtyPosition = true;
     		}
     	}
     	for (var i = 0; i < scene.objects.length; i++){
