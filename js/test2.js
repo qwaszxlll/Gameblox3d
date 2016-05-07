@@ -98,9 +98,9 @@ function init(){
 	renderer.setClearColor( 0xf0f0f0 );
 	renderer.setPixelRatio( window.devicePixelRatio );
 	renderer.setSize( WIDTH, HEIGHT );
-	renderer.sortObjects = false; //BLENDING STUFF, NOT WORKING YET
-	renderer.shadowMapEnabled = true; //SHADOW STUFF, NOT WORKING YET
-	renderer.shadowMapType = THREE.PCFSoftShadowMap; //SHADOW STUFF, NOT WORKING YET
+	// renderer.sortObjects = false; //BLENDING STUFF, NOT WORKING YET
+	// renderer.shadowMapEnabled = true; //SHADOW STUFF, NOT WORKING YET
+	// renderer.shadowMapType = THREE.PCFSoftShadowMap; //SHADOW STUFF, NOT WORKING YET
 	document.getElementById("scene").appendChild( renderer.domElement );
 
 	// Camera
@@ -110,7 +110,7 @@ function init(){
     camera.position.y = cameraRadius * Math.sin( phi * Math.PI / 360 );
     camera.position.z = cameraRadius * Math.cos( theta * Math.PI / 360 )
                             * Math.cos( phi * Math.PI / 360 );
-	camera.lookAt(cameraCenter);	
+	camera.lookAt(cameraCenter);
 	scene.add(camera);
 
 
@@ -159,29 +159,11 @@ function init(){
 
 	var light2 = new THREE.DirectionalLight( 'rgb(255,255,255)', 1 );
 	light2.lookAt( new THREE.Vector3(0,0,0) );
-	// light.position.y = gridSize*2;
-	light.position.x = gridSize/4;
-	light.position.z = gridSize/2;
+	light2.position.x = gridSize/4;
+	light2.position.z = gridSize/2;
 	scene.add( light2 );
 	light2.castShadow = true;
 
-
-	// var light3 = new THREE.SpotLight( 0xffffff, 1.5 );
-	// light3.position.set( 0, 100, 100 );
-	// // light2.lookAt( new THREE.Vector3(0,0,0) );
-	// light3.castShadow = true;
-
-	// light3.shadow.camera.near = 200;
-	// light3.shadow.camera.far = camera.far;
-	// light3.shadow.camera.fov = 50;
-	// light3.shadow.camera.visible = true;
-
-	// light3.shadow.bias = -0.00022;
-
-	// light3.shadow.mapSize.width = 2048;
-	// light3.shadow.mapSize.height = 2048;
-
-	// scene.add( light3 );
 
 	document.addEventListener( "mousedown", on_doc_down);
 	document.addEventListener( "mouseup", on_up );
@@ -233,7 +215,7 @@ function buildWalls(){
 \**************************************************************************************/
 
 /*
-* Handler for making the element controller appear or disappear. 
+* Handler for making the element controller appear or disappear.
 */
 function on_down(event){
 	if (mode =='EDIT'){
@@ -264,7 +246,7 @@ function on_down(event){
 			var mouseY = -( event.clientY / window.innerHeight ) * 2 + 1;
 
 			vector = new THREE.Vector3( mouseX, mouseY, camera.near );
-			projector = new THREE.Projector();
+			var projector = new THREE.Projector();
 			projector.unprojectVector( vector, camera );
 			raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
 			intersects = raycaster.intersectObject( ground );
@@ -274,12 +256,12 @@ function on_down(event){
 				panStart = intersects[ 0 ].point;
 
 			}
-		}	
+		}
 		window.addEventListener( "mousemove", on_move );
 
 	} else{
 		document.getElementById("scene").style.cursor = "default";
-	}		
+	}
 }
 
 function on_move(event){
@@ -288,7 +270,7 @@ function on_move(event){
 		var pointer = event.changedTouches ? event.changedTouches[ 0 ] : event;
 		var intersections = intersectObjects( pointer, [ground] );
 		var planeIntersect = intersections[ 0 ] ? intersections[ 0 ] : false;
-		
+
 		if ( planeIntersect === false ) return;
 
 		point.copy( planeIntersect.point );
@@ -335,7 +317,7 @@ function on_move(event){
 		var mouseY = -( event.clientY / window.innerHeight ) * 2 + 1;
 
 		vector = new THREE.Vector3( mouseX, mouseY, camera.near );
-		projector = new THREE.Projector();
+		var projector = new THREE.Projector();
 		projector.unprojectVector( vector, camera );
 		raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
 		intersects = raycaster.intersectObject( ground );
@@ -383,7 +365,7 @@ function on_MouseWheel( event ) {
 		delta = - event.detail;
 
 	}
-	
+
 	var currentRadius = camera.position.length();
 	delta = Math.max(-1000, Math.min(1000, delta));
 
@@ -437,7 +419,7 @@ function rotateAroundObjectAxis(object, axis, radians) {
 	} else{
 		rotAxis = new THREE.Vector3(0,0,1);
 	}
-	
+
     rotObjectMatrix = new THREE.Matrix4();
     rotObjectMatrix.makeRotationAxis(rotAxis.normalize(), radians);
 
@@ -479,7 +461,7 @@ function on_doc_down(event){
 			scene.objects[i].material.opacity = 1;
 		}
 	}
-	
+
 	//Select a cube if name in sidebar is clicked, otherwise unselect all
 	if (event.target != renderer.domElement){
 		if (event.target.localName == "li"){
@@ -533,7 +515,7 @@ function editList(event){
 		event.target.innerHTML = "";
 		event.target.appendChild(form);
 		input.select();
-	}	
+	}
 };
 /**************************************************************************************\
 |******************************  MENU BUTTON INTERACTIONS  ****************************|
@@ -690,7 +672,7 @@ function fillForm(input, selected){
 			selected.__dirtyRotation = true;
 			input.value = selected.rotation.z;
 			break;
-		case "classType":			
+		case "classType":
 			if (selected.classType == "hero"){
 				input.value = "hero";
 				input.disabled = true;
@@ -741,14 +723,20 @@ function readForm(selected){
 		input.blur();
 		switch(input.name){
 			case "pos_x":
-				selected.position.set(input.value, selected.position.y, selected.position.z);
+				if (input.value != selected.position.x){
+					selected.position.set(input.value, selected.position.y, selected.position.z);
+				}
 				break;
 			case "pos_y":
-				input.value = Math.max(0, input.value)
-				selected.position.set(selected.position.x, input.value, selected.position.z);
+				if (input.value != selected.position.x){
+					input.value = Math.max(0, input.value)
+					selected.position.set(selected.position.x, input.value, selected.position.z);
+				}
 				break;
 			case "pos_z":
-				selected.position.set(selected.position.x, selected.position.y, input.value);
+				if (input.value != selected.position.x){
+					selected.position.set(selected.position.x, selected.position.y, input.value);
+				}
 				break;
 			case "scale_x":
 				selected.scale.x = input.value;
@@ -768,7 +756,7 @@ function readForm(selected){
 			case "rot_z":
 				selected.rotation.z = input.value;
 				break;
-			case "classType":			
+			case "classType":
 				if (selected.classType != "hero"){
 					selected.classType = input.value
 				}
@@ -866,10 +854,10 @@ function play(buttons){
 	centerView();
 	for (var i=0; i<buttons.length; i++){
 		buttons[i].style.display = "none";
-	}	
+	}
 	for (var i=0; i<scene.objects.length; i++){
 		saveObject(scene.objects[i]);
-	}	
+	}
 
 	document.getElementById("sidebar").style.display = "none";
 	document.getElementById("rightbar").style.display = "none";
@@ -878,7 +866,7 @@ function play(buttons){
 	document.getElementById("editor").style.width = "100%";
 	document.getElementById("editor").style.left = 0;
 	grid.visible = false;
-	
+
 	ground_material = Physijs.createMaterial(
 		new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/grass.png' ) }),
 		bounce
@@ -892,10 +880,10 @@ function edit(buttons){
 	mode = "EDIT";
 	for (var i=0; i<buttons.length; i++){
 		buttons[i].style.display = "inline-block";
-	}	
+	}
 	for (var i=0; i<scene.objects.length; i++){
 		resetObject(scene.objects[i]);
-	}	
+	}
 
 	document.getElementById("sidebar").style.display = "block";
 	document.getElementById("rightbar").style.display = "block";
@@ -1015,16 +1003,16 @@ function addHero(){
 
 		scene.objects.push(obj)
 	});
-	
+
 	// loader.load( 'models/player.json', function ( geometry, materials ) {
 	//     var bear = new THREE.Mesh( geometry, new THREE.MeshFaceMaterial( materials ) );
 	//     console.log(bear)
 	// 	scene.add( bear );
-	// 	// scene.objects.push( bear ); 
+	// 	// scene.objects.push( bear );
 	// 	// bear.shadow = makeShadow(bear);
 	// 	// bear.shadow.update(groundPlane, lightPosition4D);
 	// 	// bear.renderOrder = 10;
-	// });	
+	// });
 }
 
 function newObject(){
@@ -1060,7 +1048,7 @@ function addElement(element){
 
 	//Add to Scene
 	scene.add( element );
-	scene.objects.push( element ); 
+	scene.objects.push( element );
 
 	// Enable CCD if the object moves more than 1 meter in one simulation frame
 	element.setCcdMotionThreshold(1);

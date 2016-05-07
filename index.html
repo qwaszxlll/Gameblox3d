@@ -11,55 +11,55 @@
 	<body onresize="resize()">
 		<div class="navBar">
 			<div class="navElement">
-			  	<button class="button" id="dropBtn" onclick="showEditOptions()"> Cursor: Edit </button>
+			  	<button class="button" id="dropBtn" onclick="game.showEditOptions()"> Cursor: Edit </button>
 			  	<div id="myDropdown" class="dropdown-content">
-			  		<div class="menuBtn" onclick="edit_rotate()">Edit Objects</div>
-				    <div class="menuBtn" onclick="pan()">Pan Camera</div>
-				    <div class="menuBtn" onclick="rotate()">Rotate Camera</div>
+			  		<div class="menuBtn" onclick="game.edit_rotate()">Edit Objects</div>
+				    <div class="menuBtn" onclick="game.pan()">Pan Camera</div>
+				    <div class="menuBtn" onclick="game.rotate()">Rotate Camera</div>
 			  	</div>
 			</div>
-			<button class="navElement button" id="centerBtn" onclick="centerView()"> 
+			<button class="navElement button" id="centerBtn" onclick="game.centerView()">
 				<img src="images/centerCam.png">
 			</button>
-			<button class="navElement button" id="centerBtn" onclick="toggleGrid()"> 
+			<button class="navElement button" id="centerBtn" onclick="game.toggleGrid()">
 				<img src="images/grid.png">
 			</button>
-			<button class="button" id="play_edit_btn" onclick="swapMode()"> PLAY </button>
+			<button class="button" id="play_edit_btn" onclick="game.swapMode()"> PLAY </button>
 		</div>
 		<div id="sidebar" class="sidebar">
 			<div id="sidebar_contents">
 				<div class="subTitle"> Add New Object </div>
-				<button class="button" onclick="addCube()"> 
-					<img src="images/cube.png"> 
+				<button class="button" onclick="game.addCube()">
+					<img src="images/cube.png">
 					<p>Class 1</p>
 				</button>
-				<button class="button" onclick="addSphere()"> 
-					<img src="images/sphere.png"> 
+				<button class="button" onclick="game.addSphere()">
+					<img src="images/sphere.png">
 					<p>Class 2</p>
 				</button>
-				<button class="button" onclick="addCylinder()"> 
-					<img src="images/cylinder.png"> 
+				<button class="button" onclick="game.addCylinder()">
+					<img src="images/cylinder.png">
 					<p>Class 3</p>
 				</button>
-				<!-- <button class="button" onclick="addCone()"> 
-					<img src="images/cone.png"> 
+				<!-- <button class="button" onclick="addCone()">
+					<img src="images/cone.png">
 					<p>Class 3</p>
 				</button> -->
-				<button id="heroBtn" class="button" onclick="addCone()"> 
-					<img src="images/hero.png"> 
+				<button id="heroBtn" class="button" onclick="game.addCone()">
+					<img src="images/hero.png">
 					<p>Hero</p>
 				</button>
-				<button class="button" onclick="newObject()"> 
-					<img src="images/add.png"> 
+				<button class="button" onclick="game.newObject()">
+					<img src="images/add.png">
 				</button>
 				<div class="subTitle noselect"> Your Objects </div>
 				<ul id ="elementList"></ul>
 			</div>
 		</div>
-		<div id="editor">				
+		<div id="editor">
 			<!-- <div id="info">
 			"Q" translate | "W" rotate | "E" scale | hold down "R" to snap to grid <br />
-			"+" increase size | "-" decrease size | Press "Q" to toggle world/local space, 
+			"+" increase size | "-" decrease size | Press "Q" to toggle world/local space,
 			</div> -->
 			<div id="scene"></div>
 			<div id="sceneOptions">
@@ -69,12 +69,12 @@
 		</div>
 		<div id="rightbar" class="sidebar">
 			<div id="rightMode">
-				<div id="editSelectedBtn" class="rightmodeBtn" onclick="editSelected()">
+				<div id="editSelectedBtn" class="rightmodeBtn" onclick="game.editSelected()">
 					<img src="images/selected.png">
 					<p>Selected</p>
 				</div
-				><div id="editWorldBtn" class="rightmodeBtn" onclick="editWorld()">
-					<img src="images/world.png"> 
+				><div id="editWorldBtn" class="rightmodeBtn" onclick="game.editWorld()">
+					<img src="images/world.png">
 					<p>World</p>
 				</div>
 			</div>
@@ -157,7 +157,7 @@
 			</form>
 		</div>
 
-		
+
 		<script type="text/javascript" src="js/threejs/build/three.min.js"></script>
 		<script type="text/javascript" src="js/Physijs/physi.js"></script>
 		<script type="text/javascript" src="js/tween.js"></script>
@@ -165,6 +165,6 @@
 		<script type="text/javascript" src="js/CanvasRenderer.js"></script>
 		<script type="text/javascript" src="js/Projector.js"></script>
 		<script type="text/javascript" src="js/ShadowMesh.js"></script>
-		<script type="text/javascript" src="js/test2.js"></script>
+		<script type="text/javascript" src="js/gameblox3d.js"></script>
 	</body>
 </html>
