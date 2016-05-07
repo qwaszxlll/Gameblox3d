@@ -58,6 +58,7 @@ var game3D = function(domElement, mode, testing){
         scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
         scene.shadows = [];
         scene.objects = [];
+        scene.walls = {};
         scene.startPositions = {};
         scene.castShadow = true;
 
@@ -138,6 +139,11 @@ var game3D = function(domElement, mode, testing){
         domElement.addEventListener( "mousewheel", on_MouseWheel );
         domElement.onresize = resize;
         // toggleSelected();
+        var vel_block = new block3D.motion.velocity(ground, 0, 0, 0);
+        vel_block.trigger();
+        // console.log(blocks_3D);
+        // var block1 = blocks3D.velocity(ground, 0, 0, 0);
+        // var block2 = blocks3D.position(ground, 0, 0, 0);
 
         //Begin Rendering
         requestAnimationFrame( render );
@@ -145,10 +151,12 @@ var game3D = function(domElement, mode, testing){
 
     function buildWalls(){
     	var positions = [
-    	[0, gridSize/2 - gridStep, gridSize/2],
-    	[-gridSize/2, gridSize/2 - gridStep, 0],
-    	[0, gridSize/2 - gridStep, -gridSize/2],
-    	[gridSize/2, gridSize/2 - gridStep, 0]];
+        	[0, gridSize/2 - gridStep, gridSize/2],
+        	[-gridSize/2, gridSize/2 - gridStep, 0],
+        	[0, gridSize/2 - gridStep, -gridSize/2],
+        	[gridSize/2, gridSize/2 - gridStep, 0]
+        ];
+        var names = ["top", "left", "bottom", "right"];
 
     	var wall_material = Physijs.createMaterial(
     		new THREE.MeshLambertMaterial({ color: 'red', visible: false}),
@@ -172,6 +180,7 @@ var game3D = function(domElement, mode, testing){
     		// 	var newVel = relative_velocity - contact_normal.multiplyScalar(dot);
     		// 	other_object.setLinearVelocity(newVel);
     		// });
+            scene.walls[names[i]] = wall;
     		scene.add(wall);
     	}
     }
@@ -285,7 +294,7 @@ var game3D = function(domElement, mode, testing){
 
         draggedElement.__dirtyPosition = true;
         draggedElement.setLinearVelocity(new THREE.Vector3(0, 0, 0));
-           draggedElement.setAngularVelocity(new THREE.Vector3(0, 0, 0));
+        draggedElement.setAngularVelocity(new THREE.Vector3(0, 0, 0));
         draggedElement.position.copy( oldPosition );
         draggedElement.position.add( point );
 
@@ -1103,5 +1112,5 @@ var game3D = function(domElement, mode, testing){
     }
 }
 var game = new game3D(document.getElementById("scene"), "EDIT", true);
-console.log(game);
+// console.log(game);
 game.init();
