@@ -8,7 +8,7 @@
 		   var imagePath = 'images/';
 		</script>
 	</head>
-	<body onresize="resize()">
+	<body onresize="game.resize()">
 		<div class="navBar">
 			<div class="navElement">
 			  	<button class="button" id="dropBtn" onclick="game.showEditOptions()"> Cursor: Edit </button>
@@ -30,23 +30,23 @@
 			<div id="sidebar_contents">
 				<div class="subTitle"> Add New Object </div>
 				<button class="button" onclick="game.addCube()">
-					<img src="images/cube.png">
-					<p>Class 1</p>
+					<img draggable="true" id='terrain' src="images/cube.png">
+					<p>Terrain</p>
 				</button>
 				<button class="button" onclick="game.addSphere()">
-					<img src="images/sphere.png">
-					<p>Class 2</p>
+					<img draggable="true" id='coin'src="images/sphere.png">
+					<p>Coin</p>
 				</button>
 				<button class="button" onclick="game.addCylinder()">
-					<img src="images/cylinder.png">
-					<p>Class 3</p>
+					<img draggable="true" id='enemy'src="images/cylinder.png">
+					<p>Enemy</p>
 				</button>
 				<!-- <button class="button" onclick="addCone()">
 					<img src="images/cone.png">
 					<p>Class 3</p>
 				</button> -->
 				<button id="heroBtn" class="button" onclick="game.addCone()">
-					<img src="images/hero.png">
+					<img draggable="true" id='hero'src="images/hero.png">
 					<p>Hero</p>
 				</button>
 				<button class="button" onclick="game.newObject()">
@@ -78,7 +78,7 @@
 					<p>World</p>
 				</div>
 			</div>
-			<form id="editSelected" class="noselect rightContainer" onsubmit = "return submitSelectedForm()">
+			<form id="editSelected" class="noselect rightContainer" onsubmit = "return game.submitSelectedForm()">
 				<div class="subTitle noselect"> Individual </div>
 				<p class="noselect"> Position </p>
 				<div>
@@ -104,6 +104,7 @@
 					<select id="classDropdown" name="classType">
 						<option value="terrain">Terrain</option>
 					  	<option value="enemy">Enemy</option>
+						<option value="enemy">Coin</option>
 					  	<option value="hero">Hero</option>
 					</select>
 				</div>

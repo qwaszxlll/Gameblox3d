@@ -35,9 +35,7 @@ block3D.dispatcher = function(){
         }
     }
     this.play = function(){
-        console.log('playing blocks');
         for (var key in this.root_directory){
-            console.log('triggering block');
             this.root_directory[key].trigger();
         }
     }
@@ -65,7 +63,7 @@ block3D.event.onGameStart = function(children, id){
     }
 }
 block3D.event.onCollision = function(obj1, obj2, children, id){
-    scope = this;
+    var scope = this;
     this.type = "event";
     this.name = "object_collision";
     this.id = setDefault(id, guid());
@@ -74,7 +72,7 @@ block3D.event.onCollision = function(obj1, obj2, children, id){
     this.children = setDefault(children, []);
     this.trigger = function(){
         this.element.addEventListener('collision', function( other_object, relative_velocity, relative_rotation, contact_normal ){
-            if (other_object == scope.other){
+            if (other_object == scope.other && this == scope.element){
                 triggerChildren(scope.children);
             }
         });
@@ -84,7 +82,7 @@ block3D.event.onCollision = function(obj1, obj2, children, id){
     }
 }
 block3D.event.onEdgeCollision = function(obj1, edge, walls, children, id){
-    scope = this;
+    var scope = this;
     this.type = "event";
     this.name = "wall_collision";
     this.id = setDefault(id, guid());
@@ -115,7 +113,7 @@ block3D.event.onEdgeCollision = function(obj1, edge, walls, children, id){
 }
 //NOT SURE HOW THIS WILL WORK
 block3D.event.onSpawn = function(obj, children, id){
-    scope = this;
+    var scope = this;
     this.type = "event";
     this.name = "spawn";
     this.id = setDefault(id, guid());
@@ -127,6 +125,17 @@ block3D.event.onSpawn = function(obj, children, id){
     }
     this.reset = function(){
         resetChildren(this.children);
+    }
+}
+
+block3D.event.gameOver = function(id){
+    this.id = setDefault(id, guid());
+    this.type = "event";
+    this.name = "spawn";
+    this.trigger = function(){
+        alert('Game Over!');
+    }
+    this.reset = function(){
     }
 }
 /******************************************************************************\
@@ -145,6 +154,43 @@ block3D.motion.velocity = function(element, x, y, z, id){
         // newVel.add(this.element.getLinearVelocity());
         // console.log(newVel);
         this.element.setLinearVelocity(scope.value);
+    }
+    this.reset = function(){
+        this.element.setLinearVelocity(new THREE.Vector3(0, 0, 0));
+    }
+}
+
+block3D.motion.move = function(element, x, y, z, id){
+    var scope = this;
+    this.type = "update";
+    this.name = "move";
+    this.id = setDefault(id, guid());
+    this.element = element;
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.trigger = function(){
+        var new_x = this.x !== 0 ? this.x : this.element.getLinearVelocity().x;
+        var new_y = this.y !== 0 ? this.y : this.element.getLinearVelocity().y;
+        var new_z = this.z !== 0 ? this.z : this.element.getLinearVelocity().z;
+        var new_vel = new THREE.Vector3(new_x, new_y, new_z);
+        // console.log(this.element);
+        this.element.setLinearVelocity(new_vel);
+    }
+    this.reset = function(){
+        this.element.setLinearVelocity(new THREE.Vector3(0, 0, 0));
+    }
+}
+
+block3D.motion.push = function(element, x, y, z, id){
+    var scope = this;
+    this.type = "update";
+    this.name = "move";
+    this.id = setDefault(id, guid());
+    this.element = element;
+    this.force = new THREE.Vector3(x, y, z);
+    this.trigger = function(){
+        this.element.applyCentralImpulse(this.force);
     }
     this.reset = function(){
         this.element.setLinearVelocity(new THREE.Vector3(0, 0, 0));
@@ -181,6 +227,28 @@ block3D.motion.rotation = function(element, x, y, z, id){
     this.reset = function(){
         this.element.__dirtyRotation = true;
         this.element.rotation.set(this.oldRot);
+    }
+}
+block3D.motion.spin = function(element, x, y, z, id){
+    var scope = this;
+    this.type = "update";
+    this.name = "move";
+    this.id = setDefault(id, guid());
+    this.element = element;
+    this.spin = new THREE.Vector3(x, y, z);
+    // this.x = x;
+    // this.y = y;
+    // this.z = z;
+    this.trigger = function(){
+        // var new_x = this.x !== 0 ? this.x : this.element.getLinearVelocity().x;
+        // var new_y = this.y !== 0 ? this.y : this.element.getLinearVelocity().y;
+        // var new_z = this.z !== 0 ? this.z : this.element.getLinearVelocity().z;
+        // var new_vel = new THREE.Vector3(new_x, new_y, new_z);
+        // console.log(new_vel);
+        this.element.setAngularVelocity(this.spin);
+    }
+    this.reset = function(){
+        this.element.setAngularVelocity(new THREE.Vector3(0, 0, 0));
     }
 }
 
@@ -226,16 +294,19 @@ block3D.looks.color = function(element, color, id){
         this.element.material.color = this.oldColor;
     }
 }
-block3D.looks.clear = function(scene, element, id){
+block3D.looks.clear = function(scene, element, children, id){
+    var scope = this;
     this.type = "update";
     this.name = "clear";
     this.id = setDefault(id, guid());
     this.element = element;
+    this.children = setDefault(children, []);
     this.trigger = function(){
-        scene.remove(this.element)
+        scene.remove(scope.element)
+        triggerChildren(this.children);
     }
     this.reset = function(){
-        scene.add(this.element);
+        scene.add(scope.element);
     }
 }
 
@@ -243,21 +314,9 @@ block3D.looks.clear = function(scene, element, id){
 |**********************************  CONTROL  *********************************|
 \******************************************************************************/
 block3D.control = function(){};
+
 block3D.control.forever = function(children, id){
-    this.type = "control";
-    this.name = "forever";
-    this.id = setDefault(id, guid());
-    this.children = setDefault(children, []);
-    this.trigger = function(){
-        setTimeout(function(){
-            triggerChildren(children);
-        }, 16)
-    }
-    this.reset = function(){
-        resetChildren(this.children);
-    }
-}
-block3D.control.forever = function(children, id){
+    var scope = this;
     this.type = "control";
     this.name = "forever";
     this.id = setDefault(id, guid());
@@ -278,6 +337,7 @@ block3D.control.forever = function(children, id){
     }
 }
 block3D.control.wait = function(delay, children, id){
+    var scope = this;
     this.type = "control";
     this.name = "forever";
     this.id = setDefault(id, guid());
@@ -445,18 +505,28 @@ block3D.input.onDown = function(key, children, id){
     this.name = "onPress";
     this.id = setDefault(id, guid());
     this.key = keycodes[key];
+    this.down = false;
     this.children = setDefault(children, []);
     this.trigger = function(){
         document.addEventListener('keydown', onDownDown);
+        document.addEventListener('keyup', onDownUp);
     }
     this.reset = function(){
         resetChildren(this.children);
         document.removeEventListener('keydown', onDownDown);
+        document.removeEventListener('keyup', scope.onDownUp);
     }
 
     function onDownDown(event){
-        if (event.keyCode == scope.key){
+        if (event.keyCode == scope.key && !scope.down){
+            scope.down = true;
+            // console.log("key: ", key, scope.key);
             triggerChildren(scope.children);
+        }
+    }
+    function onDownUp(event){
+        if (event.keyCode == scope.key){
+            scope.down = false;
         }
     }
 }
@@ -470,8 +540,6 @@ block3D.input.whileDown = function(key, children, id){
     this.down = false;
     this.interval = null;
     this.children = setDefault(children, []);
-    console.log(key);
-    console.log(this.key);
     this.trigger = function(){
         // document.onkeydown = whileDownDown;
         // document.onkeyup = whileDownUp;
@@ -488,9 +556,10 @@ block3D.input.whileDown = function(key, children, id){
 
     this.whileDownDown = function(event){
         // console.log(scope.id);
-        // console.log("key: ", key, scope.key);
         // console.log(scope.key);
-        if (event.keyCode == scope.key && !scope.interval){
+        if (event.keyCode == scope.key && !scope.interval && !scope.down){
+            scope.down = true;
+            // console.log("key: ", key, scope.key);
             scope.interval = setInterval(function(){
                 triggerChildren(scope.children);
             }, 16);
@@ -499,6 +568,7 @@ block3D.input.whileDown = function(key, children, id){
 
     this.whileDownUp = function(event){
         if (event.keyCode == scope.key){
+            scope.down = false;
             clearInterval(scope.interval);
             resetChildren(scope.children);
             scope.interval = null;
@@ -507,7 +577,7 @@ block3D.input.whileDown = function(key, children, id){
 }
 
 block3D.input.isPressed = function(key, children, id){
-    scope = this;
+    var scope = this;
     this.type = "bool";
     this.name = "onPress";
     this.id = setDefault(id, guid());

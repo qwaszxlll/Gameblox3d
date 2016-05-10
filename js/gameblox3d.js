@@ -22,6 +22,7 @@ var game3D = function(domElement, mode, testing){
     //Play Variables
     var fps = 60, multiplayer = false,
         block_dispatcher = new block3D.dispatcher();
+    this.hero = null;
 
     //Control Variables
     var cursorMode = 'edit',
@@ -45,6 +46,9 @@ var game3D = function(domElement, mode, testing){
     	  SELECTED = false,
     	  selectOpacity = 0.6;
 
+    //UI Variables
+    var iconDrag = '';
+
     //Physics Variables
     var bounce = 0.3;
 
@@ -56,7 +60,7 @@ var game3D = function(domElement, mode, testing){
     this.init = function(){
         //Scene
         scene = new Physijs.Scene;
-        scene.setGravity(new THREE.Vector3( 0, -10, 0 ));
+        scene.setGravity(new THREE.Vector3( 0, -20, 0 ));
         scene.shadows = [];
         scene.objects = [];
         scene.walls = {};
@@ -135,10 +139,12 @@ var game3D = function(domElement, mode, testing){
         //Attach Listeners
         document.addEventListener( "mousedown", on_doc_down);
         document.addEventListener( "mouseup", on_up );
+        document.addEventListener( "keyup", keyboardCommands );
         domElement.addEventListener( "mousedown", on_down );
         domElement.addEventListener( "touchstart", on_down );
         domElement.addEventListener( "mousewheel", on_MouseWheel );
-        domElement.onresize = resize;
+        domElement.onresize = this.resize;
+        enableIconDrag();
         toggleSelected();
 
         //Begin Rendering
@@ -156,26 +162,24 @@ var game3D = function(domElement, mode, testing){
 
     	var wall_material = Physijs.createMaterial(
     		new THREE.MeshLambertMaterial({ color: 'red', visible: false}),
-    		0, // friction
+    		1, // friction
     		1 // restitution
     	);
 
     	for (var i = 0; i < 4; i++){
-    		var wall = new Physijs.BoxMesh(
-    			new THREE.CubeGeometry(gridSize, 0.01, gridSize),
-    			wall_material,
-    			0 // mass
-    		);
-    		wall.position.set(positions[i][0], positions[i][1], positions[i][2]);
-    		if (i == 1 || i == 3){
-    			rotateAroundObjectAxis(wall, "z", Math.PI/2);
+            var wall_geometry = new THREE.BoxGeometry(gridSize, gridSize, 0.01);
+            if (i == 1 || i == 3){
+                wall_geometry = new THREE.BoxGeometry(0.01, gridSize, gridSize);
     		}
-    		rotateAroundObjectAxis(wall, "x", Math.PI/2);
-    		// wall.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
-    		// 	var dot = relative_velocity.dot(contact_normal.normalize());
-    		// 	var newVel = relative_velocity - contact_normal.multiplyScalar(dot);
-    		// 	other_object.setLinearVelocity(newVel);
-    		// });
+
+    		var wall = new Physijs.BoxMesh(wall_geometry, wall_material);
+            wall.mass = 0;
+    		wall.position.set(positions[i][0], positions[i][1], positions[i][2]);
+
+    		wall.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
+                //FIX REBOUND
+    			other_object.setLinearVelocity(relative_velocity);
+    		});
             scene.walls[names[i]] = wall;
     		scene.add(wall);
     	}
@@ -223,6 +227,7 @@ var game3D = function(domElement, mode, testing){
     function on_up(event){
     	// scene.setGravity(new THREE.Vector3( 0, -10, 0 )); //Make Elements Drop When Editing
     	if (draggedElement){
+            checkOverlap(draggedElement);
     		draggedElement = false;
     	}
     	mouseDown = false;
@@ -272,7 +277,7 @@ var game3D = function(domElement, mode, testing){
     }
 
     function handleCursorDrag(){
-        scene.setGravity(new THREE.Vector3( 0, 0, 0 ));
+        // scene.setGravity(new THREE.Vector3( 0, 0, 0 ));
         var pointer = event.changedTouches ? event.changedTouches[ 0 ] : event;
         var intersections = intersectObjects( pointer, [ground] );
         var planeIntersect = intersections[ 0 ] ? intersections[ 0 ] : false;
@@ -363,6 +368,39 @@ var game3D = function(domElement, mode, testing){
     	}
     }
 
+    function enableIconDrag(){
+        document.addEventListener('mousedown', handleIconClick);
+        document.addEventListener('dragend', catchIconDrop);
+    }
+
+    function handleIconClick(e){
+        iconDrag = e.target.id;
+    }
+
+    this.iconDrop = function(e){
+        console.log(e);
+    }
+
+    function catchIconDrop(){
+        console.log(iconDrag);
+        switch(iconDrag){
+            case 'hero':
+                game.addCone();
+                break;
+            case 'terrain':
+                game.addCube();
+                break;
+            case 'coin':
+                game.addSphere();
+                break;
+            case 'enemy':
+                game.addCylinder();
+                break;
+            default:
+                break;
+        }
+    }
+
     this.toggleGrid = function(){
     	grid.visible = !grid.visible;
     	if (grid.visible){
@@ -396,6 +434,48 @@ var game3D = function(domElement, mode, testing){
     	draggedElement.position.x = Math.round( draggedElement.position.x );
     	draggedElement.position.y = Math.round( draggedElement.position.y );
     	draggedElement.position.z = Math.round( draggedElement.position.z );
+    }
+
+    function checkOverlap(element){
+        var pos = element.position;
+        var overlapped = false;
+        var ys = scene.objects.splice();
+        var topY = -1;
+        for (var i=0; i<scene.objects.length; i++){
+            var otherPos = scene.objects[i].position;
+            if (scene.objects[i] != element && otherPos.x == pos.x && otherPos.z == pos.z){
+                ys[otherPos.y] = otherPos.y;
+                topY = Math.max(topY, otherPos.y);
+            };
+    	}
+        for (var i=0; i<ys.length; i++){
+            if (ys[i] != i){
+                element.__dirtyPosition = true;
+                element.position.set(pos.x, i, pos.z);
+                return
+            }
+    	}
+        element.__dirtyPosition = true;
+        element.position.set(pos.x, topY+1, pos.z);
+    }
+
+    function keyboardCommands(e){
+        //Delete
+        if (e.keyCode == 8 && SELECTED){
+            var remove = SELECTED;
+            unselect();
+            scene.remove(remove.shadow);
+            scene.remove(remove);
+            var index = scene.objects.indexOf(remove);
+            if (index > -1){
+                scene.objects.splice(index, 1);
+            }
+            updateList();
+        }
+        //Prevent Space Bar from triggering last button
+        if (e.keyCode == 32){
+            e.preventDefault();
+        }
     }
 
     function checkCameraBounds(){
@@ -436,16 +516,7 @@ var game3D = function(domElement, mode, testing){
         rotObjectMatrix = new THREE.Matrix4();
         rotObjectMatrix.makeRotationAxis(rotAxis.normalize(), radians);
 
-        // old code for Three.JS pre r54:
-        // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
-        // new code for Three.JS r55+:
         object.matrix.multiply(rotObjectMatrix);
-
-        // old code for Three.js pre r49:
-        // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
-        // old code for Three.js r50-r58:
-        // object.rotation.setEulerFromRotationMatrix(object.matrix);
-        // new code for Three.js r59+:
         object.rotation.setFromRotationMatrix(object.matrix);
     }
 
@@ -573,7 +644,8 @@ var game3D = function(domElement, mode, testing){
 
     //SELECTION HELPERS
 
-    function submitSelectedForm(){
+    this.submitSelectedForm = function(){
+        console.log('blah')
         readForm(SELECTED);
         return false;
     }
@@ -623,6 +695,7 @@ var game3D = function(domElement, mode, testing){
     }
 
     this.swapMode = function(){
+        console.log('wtf');
     	document.getElementById("play_edit_btn").innerHTML = mode;
     	var buttons = document.getElementsByClassName("navElement");
 
@@ -631,17 +704,28 @@ var game3D = function(domElement, mode, testing){
     	} else{
     		edit(buttons);
     	}
-    	resize();
+    	this.resize();
     }
 
     function play(buttons){
+        console.log("fck");
     	mode = "PLAY";
     	game.centerView();
     	for (var i=0; i<buttons.length; i++){
     		buttons[i].style.display = "none";
     	}
     	for (var i=0; i<scene.objects.length; i++){
+            if (scene.objects[i].classType == "hero"){
+
+        	} else if ( scene.objects[i].classType == "enemy"){
+                makeEnemy(scene.objects[i], this.hero);
+            } else if ( scene.objects[i].classType == "coin"){
+                makeCoin(scene.objects[i], this.hero);
+            } else {
+        		makeTerrain(scene.objects[i]);
+        	}
     		saveObject(scene.objects[i]);
+            scene.objects[i].material.opacity = 1;
     	}
 
     	document.getElementById("sidebar").style.display = "none";
@@ -876,7 +960,7 @@ var game3D = function(domElement, mode, testing){
     	}
     }
 
-    function resize(event){
+    this.resize = function(event){
     	WIDTH = document.getElementById("scene").clientWidth;
       	HEIGHT = document.getElementById("scene").clientHeight;
       	renderer.setSize( WIDTH, HEIGHT );
@@ -900,7 +984,7 @@ var game3D = function(domElement, mode, testing){
     	if (SELECTED){
             SELECTED.material.opacity = 1;
             if (testing){
-                readForm(SELECTED);
+                // readForm(SELECTED);
         		SELECTED.listLink.style.background = '';
         		SELECTED.listLink.style.color = '';
             }
@@ -911,8 +995,9 @@ var game3D = function(domElement, mode, testing){
 
     function saveObject(element){
     	scene.startPositions[element.name] = new THREE.Vector3(element.position.x, element.position.y, element.position.z);
-    	element.mass = 1;
+        element.mass = element.playAttributes.mass;
     	element.setLinearVelocity(element.playAttributes.velocity);
+        console.log(element);
     }
 
     function resetObject(element){
@@ -931,10 +1016,10 @@ var game3D = function(domElement, mode, testing){
 
     this.addCube = function(){
     	var geometry = new THREE.BoxGeometry( gridStep, gridStep, gridStep );
-    	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+    	var material_color = 0x6B3D00; //For Random: Math.random() * 0xffffff
     	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-    		0, // friction
-    		0.9 // restitution
+    		1, // friction
+    		1 // restitution
     	);
 
     	var cube = new Physijs.BoxMesh( geometry, material);
@@ -943,39 +1028,41 @@ var game3D = function(domElement, mode, testing){
     }
 
     this.addSphere = function(){
-    	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+    	var material_color = 0x0264D6; //For Random: Math.random() * 0xffffff
     	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-    		0, // friction
-    		0.9 // restitution
+    		1, // friction
+    		1 // restitution
     	);
     	var sphere = new Physijs.SphereMesh(
     	  new THREE.SphereGeometry(
-    	    radius = gridStep/2,
+    	    radius = gridStep/4,
     	    segments = 8,
     	    rings = 8),
     	  material);
 
     	sphere.class = "Class 2"
+        sphere.classType = 'coin'
     	return addElement(sphere);
     }
 
     this.addCylinder = function(){
-    	var radiusTop = gridStep/2, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
+    	var radiusTop = gridStep/2, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 16;
     	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
     	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
-    		0, // friction
+    		1, // friction
     		1 // restitution
     	);
     	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
     	var cylinder = new Physijs.CylinderMesh( geometry, material );
 
     	cylinder.class = "Class 3"
+        cylinder.classType = 'enemy'
     	return addElement(cylinder);
     }
 
     this.addCone = function(){
     	var radiusTop = 0.001, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
-    	var material_color = 0xD0021B; //For Random: Math.random() * 0xffffff
+    	var material_color = 0xE7BC83; //For Random: Math.random() * 0xffffff
     	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
     		0, // medium friction
     		.3 // low restitution
@@ -984,24 +1071,23 @@ var game3D = function(domElement, mode, testing){
     	var cone = new Physijs.CylinderMesh( geometry, material );
 
     	cone.class = "hero"
-        var move_forward = new block3D.motion.velocity(cone, 0, 0, -5);
-        var move_left = new block3D.motion.velocity(cone, -5, 0, 0);
-        var move_back = new block3D.motion.velocity(cone, 0, 0, 5);
-        var move_right = new block3D.motion.velocity(cone, 5, 0, 0);
-        var jump = new block3D.motion.velocity(cone, 0, 5, 0);
-        var upKey = new block3D.input.whileDown('up', [move_forward]);
-        var leftKey = new block3D.input.whileDown('left', [move_left]);
-        var downKey = new block3D.input.whileDown('down', [move_back]);
-        var rightKey = new block3D.input.whileDown('right', [move_right]);
-        var spaceKey = new block3D.input.onDown('a', [jump]);
-        block_dispatcher.add(upKey);
-        block_dispatcher.add(leftKey);
-        block_dispatcher.add(downKey);
-        block_dispatcher.add(rightKey);
-        block_dispatcher.add(spaceKey);
-        console.log(block_dispatcher);
-
+        cone.classType = 'hero';
     	return addElement(cone);
+    }
+
+    this.addCoin = function(){
+        var radiusTop = gridStep/2, radiusBottom = gridStep/2, height = gridStep, radiusSegments = 10;
+    	var material_color = 0xFFF465;
+    	var material = Physijs.createMaterial( new THREE.MeshLambertMaterial( { color: material_color} ),
+    		0, // friction
+    		1 // restitution
+    	);
+    	var geometry = new THREE.CylinderGeometry( radiusTop, radiusBottom, height, radiusSegments );
+    	var cylinder = new Physijs.CylinderMesh( geometry, material );
+
+    	cylinder.class = "coin";
+        cylinder.classType = "coin";
+    	return addElement(cylinder);
     }
 
     this.addHero = function(){
@@ -1041,30 +1127,35 @@ var game3D = function(domElement, mode, testing){
 
     function addElement(element){
     	unselect();
-    	//Name
+    	element.position.set(0, 0, 0);
+        element.mass = 0;
+
+        //Name
     	currIndex = scene.objects.length;
     	element.name = "Object" + (currIndex + 1);
-    	if (element.class == "hero"){
-    		element.classType = "hero"
+        element.playAttributes = {
+            mass: 0,
+            velocity: new THREE.Vector3(0,0,0),
+            invisible: false,
+            draggable: false,
+            stop_after_drag: true,
+            ignore_collision: false,
+            ignore_edges: false
+        }
+    	if (element.classType == "hero"){
     		document.getElementById("heroBtn").style.display = "none";
     		element.name = "Hero"
     		currIndex -= 1;
-    	} else{
-    		element.classType = "terrain"
-    	}
-
-    	element.position.set(0, 0, 0);
-    	element.mass = 0;
-    	element.playAttributes = {
-    		// velocity: new THREE.Vector3(5 * (Math.random() - 0.5) , 20 * (Math.random() - 0.5), 5 * (Math.random() - 0.5)),
-    		mass: 1,
-    		invisible: false,
-    		draggable: false,
-    		stop_after_drag: true,
-    		ignore_collision: false,
-    		ignore_edges: false,
-    		velocity: new THREE.Vector3(0,0,0)
-    	}
+            makeHero(element);
+        }
+    	// } else if ( element.classType == "enemy"){
+        //     makeEnemy(element, this.hero);
+        // } else if ( element.classType == "coin"){
+        //     makeCoin(element, this.hero);
+        // } else {
+    	// 	makeTerrain(element);
+    	// }
+        checkOverlap(element);
 
     	//Add to Scene
     	scene.add( element );
@@ -1086,6 +1177,45 @@ var game3D = function(domElement, mode, testing){
         }
     	selectObj(element);
         return element;
+    }
+
+    function makeCoin(element, hero){
+        var clear = new block3D.looks.clear(scene, element);
+        var onCollision = new block3D.event.onCollision(element, hero, [clear]);
+        block_dispatcher.add(onCollision);
+    }
+    function makeTerrain(element, hero){
+        var makeBlack = new block3D.looks.color(element, 0x000000);
+        var onCollision = new block3D.event.onCollision(element, hero, [makeBlack]);
+        block_dispatcher.add(onCollision);
+    }
+    function makeEnemy(element, hero){
+        element.playAttributes.mass = 1;
+        element.playAttributes.velocity.x = 5;
+        var gameOver = new block3D.event.gameOver();
+        var clear = new block3D.looks.clear(scene, hero, [gameOver]);
+        var onCollision = new block3D.event.onCollision(element, hero, [clear]);
+        block_dispatcher.add(onCollision);
+    }
+    function makeHero(element){
+        this.hero = element;
+        element.playAttributes.mass = 1;
+        var speed = 8;
+        var move_forward = new block3D.motion.move(element, 0, 0, -speed);
+        var move_left = new block3D.motion.move(element, -speed, 0, 0);
+        var move_back = new block3D.motion.move(element, 0, 0, speed);
+        var move_right = new block3D.motion.move(element, speed, 0, 0);
+        var jump = new block3D.motion.push(element, 0, speed, 0);
+        var upKey = new block3D.input.whileDown('w', [move_forward]);
+        var leftKey = new block3D.input.whileDown('a', [move_left]);
+        var downKey = new block3D.input.whileDown('s', [move_back]);
+        var rightKey = new block3D.input.whileDown('d', [move_right]);
+        var spaceKey = new block3D.input.onDown('space', [jump]);
+        block_dispatcher.add(upKey);
+        block_dispatcher.add(leftKey);
+        block_dispatcher.add(downKey);
+        block_dispatcher.add(rightKey);
+        block_dispatcher.add(spaceKey);
     }
 
     function makeShadow(element){
