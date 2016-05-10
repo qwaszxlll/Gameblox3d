@@ -170,10 +170,11 @@ block3D.motion.move = function(element, x, y, z, id){
     this.y = y;
     this.z = z;
     this.trigger = function(){
-        var new_x = this.x !== 0 ? this.x : this.element.getLinearVelocity().x;
+        // var new_x = this.x !== 0 ? this.x : this.element.getLinearVelocity().x;
         var new_y = this.y !== 0 ? this.y : this.element.getLinearVelocity().y;
-        var new_z = this.z !== 0 ? this.z : this.element.getLinearVelocity().z;
-        var new_vel = new THREE.Vector3(new_x, new_y, new_z);
+        // var new_z = this.z !== 0 ? this.z : this.element.getLinearVelocity().z;
+        var new_vel = new THREE.Vector3(x, new_y, z);
+        new_vel.applyEuler(this.element.rotation);
         // console.log(this.element);
         this.element.setLinearVelocity(new_vel);
     }
@@ -225,9 +226,43 @@ block3D.motion.rotation = function(element, x, y, z, id){
         this.element.rotation.set(new THREE.Vector3(this.x, this.y, this.z));
     }
     this.reset = function(){
-        this.element.__dirtyRotation = true;
-        this.element.rotation.set(this.oldRot);
+        // this.element.__dirtyRotation = true;
+        // this.element.rotation.set(this.oldRot);
     }
+}
+block3D.motion.rotateOnAxis = function(element, axis, radians, id){
+    var scope = this;
+    this.type = "update";
+    this.name = "rotation";
+    this.id = setDefault(id, guid());
+    this.element = element;
+    // this.oldRot = element.rotation.toVector3().copy();
+    // this.value = new THREE.Vector3(x, y, z);
+
+    this.trigger = function(){
+        scope.element.__dirtyRotation = true;
+        var rotAxis;
+        if (axis == "x"){
+            rotAxis = new THREE.Vector3(1,0,0);
+        } else if (axis = "y"){
+            rotAxis = new THREE.Vector3(0,1,0);
+        } else{
+            rotAxis = new THREE.Vector3(0,0,1);
+        }
+
+        rotObjectMatrix = new THREE.Matrix4();
+        rotObjectMatrix.makeRotationAxis(rotAxis.normalize(), radians);
+
+        scope.element.matrix.multiply(rotObjectMatrix);
+        scope.element.rotation.setFromRotationMatrix(scope.element.matrix);
+        // scope.element.rotation.set(new THREE.Vector3(this.x, this.y, this.z));
+    }
+    this.reset = function(){
+        // this.element.__dirtyRotation = true;
+        // this.element.rotation.set(new THREE.Vector3(0, 0, 0));
+    }
+
+
 }
 block3D.motion.spin = function(element, x, y, z, id){
     var scope = this;
@@ -562,7 +597,7 @@ block3D.input.whileDown = function(key, children, id){
             // console.log("key: ", key, scope.key);
             scope.interval = setInterval(function(){
                 triggerChildren(scope.children);
-            }, 16);
+            }, 20);
         }
     }
 
@@ -612,6 +647,38 @@ block3D.input.isPressed = function(key, children, id){
             scope.down = false;
         }
     };
+}
+
+/******************************************************************************\
+|*********************************  Camera  ***********************************|
+\******************************************************************************/
+block3D.camera = function(){};
+block3D.camera.follow = function(camera, element, distance, id){
+    var scope = this;
+    this.type = "camera";
+    this.name = "follow";
+    this.id = setDefault(id, guid());
+    this.element = element;
+    this.camera = camera;
+    this.interval = null;
+
+    this.trigger = function(){
+        this.interval = setInterval(function(){
+            var displacement = new THREE.Vector3(0, 1, 2);
+            displacement.applyEuler(scope.element.rotation);
+            displacement.normalize();
+            displacement.multiplyScalar(distance);
+            scope.camera.position.x = scope.element.position.x + displacement.x;
+            scope.camera.position.y = scope.element.position.y + displacement.y;
+            scope.camera.position.z = scope.element.position.z + displacement.z;
+            scope.camera.lookAt(scope.element.position);
+        }, 16)
+    }
+    this.reset = function(){
+        // clearInterval(this.interval);
+        // this.interval = null;
+        // game.centerView();
+    }
 }
 
 /******************************************************************************\

@@ -8,7 +8,7 @@ var game3D = function(domElement, mode, testing){
     var WIDTH = domElement.clientWidth,
       	HEIGHT = domElement.clientHeight,
       	gridSize = 21, gridStep = 1, gridOffset = 0, gridHeight = 0,
-        scene, renderer, camera, grid, ground;
+        scene, renderer, camera, render_cam, grid, ground;
 
     //Camera Manipulation Parameters
     var theta = 0, phi = 60,
@@ -139,7 +139,8 @@ var game3D = function(domElement, mode, testing){
         //Attach Listeners
         document.addEventListener( "mousedown", on_doc_down);
         document.addEventListener( "mouseup", on_up );
-        document.addEventListener( "keyup", keyboardCommands );
+        document.addEventListener( "keydown", handleSpaceBar );
+        domElement.addEventListener( "keyup", keyboardCommands );
         domElement.addEventListener( "mousedown", on_down );
         domElement.addEventListener( "touchstart", on_down );
         domElement.addEventListener( "mousewheel", on_MouseWheel );
@@ -437,6 +438,7 @@ var game3D = function(domElement, mode, testing){
     }
 
     function checkOverlap(element){
+        console.log(element.rotation);
         var pos = element.position;
         var overlapped = false;
         var ys = scene.objects.splice();
@@ -472,6 +474,9 @@ var game3D = function(domElement, mode, testing){
             }
             updateList();
         }
+    }
+
+    function handleSpaceBar(e){
         //Prevent Space Bar from triggering last button
         if (e.keyCode == 32){
             e.preventDefault();
@@ -823,6 +828,7 @@ var game3D = function(domElement, mode, testing){
     			break;
     		case "rot_x":
     			selected.__dirtyRotation = true;
+                console.log(selected);
     			input.value = selected.rotation.x;
     			break;
     		case "rot_y":
@@ -1216,6 +1222,14 @@ var game3D = function(domElement, mode, testing){
         block_dispatcher.add(downKey);
         block_dispatcher.add(rightKey);
         block_dispatcher.add(spaceKey);
+        var look_left = new block3D.motion.rotateOnAxis(element, "y", 0.05);
+        var pan_key_l = new block3D.input.whileDown('left', [look_left]);
+        var look_right = new block3D.motion.rotateOnAxis(element, "y", -0.05);
+        var pan_key_r = new block3D.input.whileDown('right', [look_right]);
+        block_dispatcher.add(pan_key_l);
+        block_dispatcher.add(pan_key_r);
+        var cameraFollow =new block3D.camera.follow(camera, this.hero, 20);
+        block_dispatcher.add(cameraFollow);
     }
 
     function makeShadow(element){
@@ -1248,6 +1262,7 @@ var game3D = function(domElement, mode, testing){
     	if (mode == 'EDIT'){
     		for (var i = 0; i < scene.objects.length; i++){
     			scene.objects[i].__dirtyPosition = true;
+                scene.objects[i].__dirtyRotation = true;
     		}
     	}
     	for (var i = 0; i < scene.objects.length; i++){
